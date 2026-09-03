@@ -12,10 +12,12 @@ Routes:
 
 import os
 import json
+import secrets
 import uuid
 import sys
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from werkzeug.utils import secure_filename
 
 # Add parent directory to path so we can import the 'analyzer' package
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -25,8 +27,18 @@ from analyzer.feature_extractor import extract_auth_features, extract_web_featur
 from analyzer.rule_engine       import run_all_rules
 from analyzer.ml_detector       import detect_anomalies, get_ip_scores
 
+# Uploaded logs are attacker-controlled text by definition — this tool exists to
+# read hostile input. Everything below treats the upload path accordingly.
+ALLOWED_EXTENSIONS = {'.log', '.txt', '.csv'}
+MAX_UPLOAD_BYTES   = 50 * 1024 * 1024
+
 app = Flask(__name__)
-app.secret_key = 'seculog-dev-secret-key'
+
+# A fresh random key each start is the right default: it invalidates old session
+# cookies on restart, which is harmless here since a session only holds a
+# result id. Set SECULOG_SECRET_KEY to keep sessions across restarts.
+app.secret_key = os.environ.get('SECULOG_SECRET_KEY') or secrets.token_hex(32)
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_BYTES
 
 UPLOAD_FOLDER  = os.path.join(os.path.dirname(__file__), '..', 'data', 'uploads')
 RESULTS_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'data', 'results')
@@ -233,18 +245,45 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    if 'logfile' not in request.files or request.files['logfile'].filename == '':
+    file = request.files.get('logfile')
+    if file is None or not file.filename:
         return redirect(url_for('index'))
 
-    file      = request.files['logfile']
-    save_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    # secure_filename strips directory components, so an upload named
+    # "../../web/app.py" lands as "web_app.py" inside UPLOAD_FOLDER instead of
+    # overwriting source. It can return '' for a name that is entirely unsafe.
+    filename = secure_filename(file.filename)
+    if not filename:
+        return render_template(
+            'index.html',
+            error='That filename cannot be used. Rename the file and try again.'
+        )
+
+    if os.path.splitext(filename)[1].lower() not in ALLOWED_EXTENSIONS:
+        allowed = ', '.join(sorted(ALLOWED_EXTENSIONS))
+        return render_template(
+            'index.html',
+            error=f'Unsupported file type. Upload a log file ({allowed}).'
+        )
+
+    save_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(save_path)
 
-    log_type = request.form.get('log_type', 'auto')
-    results  = run_analysis(save_path, log_type)
+    results = run_analysis(save_path, request.form.get('log_type', 'auto'))
+    if 'error' in results:
+        return render_template('index.html', error=results['error'])
 
     session['result_id'] = results['result_id']
     return redirect(url_for('dashboard'))
+
+
+@app.errorhandler(413)
+def upload_too_large(_e):
+    limit_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+    return render_template(
+        'index.html',
+        error=f'That file is larger than the {limit_mb} MB limit.'
+    ), 413
 
 
 @app.route('/use-sample', methods=['POST'])
@@ -268,6 +307,9 @@ def use_sample():
             generate_sample_logs.gen_web_log(path)
 
     results = run_analysis(path, sample_type)
+    if 'error' in results:
+        return render_template('index.html', error=results['error'])
+
     session['result_id'] = results['result_id']
     return redirect(url_for('dashboard'))
 
