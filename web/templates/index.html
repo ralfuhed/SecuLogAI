@@ -9,14 +9,14 @@
     <div class="inline-flex items-center gap-2 bg-ops-cyan/10 border border-ops-cyan/20
                 rounded-full px-4 py-1.5 mb-6 font-mono text-xs text-ops-cyan">
       <span class="w-1.5 h-1.5 rounded-full bg-ops-cyan animate-pulse"></span>
-      AI-POWERED DETECTION ACTIVE
+      SIGNATURE RULES + ML ANOMALY DETECTION
     </div>
     <h1 class="font-display text-5xl font-bold tracking-widest text-white leading-none mb-3">
       SECURITY LOG<br>
       <span class="text-ops-cyan">INTELLIGENCE</span>
     </h1>
     <p class="text-ops-muted text-sm leading-relaxed">
-      Upload SSH auth or web server logs. Rule-based signatures &plus; Isolation Forest ML
+      Upload SSH auth, web server or Windows Security logs. Signature rules mapped to
       detect brute force, SQL injection, anomalous behaviour — instantly.
     </p>
   </div>
@@ -63,6 +63,7 @@
             <option value="auto">Auto-detect</option>
             <option value="auth">SSH / Auth</option>
             <option value="web">Web (Apache/Nginx)</option>
+            <option value="windows">Windows Security (XML)</option>
           </select>
         </div>
 
@@ -87,7 +88,7 @@
     <p class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
       // Quick Demo — No Upload Needed
     </p>
-    <div class="grid grid-cols-3 gap-3">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
 
       <form action="/use-sample" method="post">
         <input type="hidden" name="sample" value="auth" />
@@ -121,16 +122,31 @@
       </form>
 
       <form action="/use-sample" method="post">
+        <input type="hidden" name="sample" value="windows" />
+        <button type="submit"
+          class="w-full text-left p-4 rounded-lg border border-ops-border
+                 hover:border-ops-cyan/40 hover:bg-ops-cyan/5 transition-all group">
+          <div class="font-display font-bold text-sm tracking-widest text-white mb-1
+                      group-hover:text-ops-cyan transition-colors">WINDOWS SECURITY</div>
+          <div class="font-mono text-xs text-ops-muted mb-2">Spray &middot; Lockout &middot; Privilege &middot; Persistence</div>
+          <div class="flex gap-1 flex-wrap">
+            <span class="badge badge-critical">CRITICAL</span>
+            <span class="badge badge-high">HIGH &times;3</span>
+          </div>
+        </button>
+      </form>
+
+      <form action="/use-sample" method="post">
         <input type="hidden" name="sample" value="csv" />
         <button type="submit"
           class="w-full text-left p-4 rounded-lg border border-ops-green/30
                  hover:border-ops-green/60 hover:bg-ops-green/5 transition-all group">
           <div class="font-display font-bold text-sm tracking-widest text-white mb-1
-                      group-hover:text-ops-green transition-colors">KAGGLE DATASET</div>
+                      group-hover:text-ops-green transition-colors">LABELLED DATASET</div>
           <div class="font-mono text-xs text-ops-muted mb-2">41,825 events · Ground truth labels</div>
           <div class="flex gap-1 flex-wrap">
             <span class="badge badge-critical">CRITICAL ×9</span>
-            <span class="badge" style="background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.3)">REAL DATA</span>
+            <span class="badge" style="background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.3)">MEASURED</span>
           </div>
         </button>
       </form>
@@ -140,17 +156,16 @@
 
   <!-- ── Pipeline steps ── -->
   <div class="grid grid-cols-4 gap-2 fade-up d4">
-    {% for num, icon, label, sub in [
-      ('01','📂','INGEST',  'SSH · Web logs'),
-      ('02','⚙',  'PARSE',   'Regex extract'),
-      ('03','🔎','DETECT',  'Rules + ML'),
-      ('04','📊','REPORT',  'Ranked threats'),
+    {% for num, label, sub in [
+      ('01','INGEST', 'SSH &middot; Web &middot; Windows'),
+      ('02','PARSE',  'Structured events'),
+      ('03','DETECT', 'Rules + ML'),
+      ('04','REPORT', 'Ranked, ATT&CK-tagged'),
     ] %}
     <div class="bg-ops-card border border-ops-border rounded-lg p-3 text-center">
       <div class="font-mono text-xs text-ops-border mb-1">{{ num }}</div>
-      <div class="text-lg mb-1">{{ icon }}</div>
       <div class="font-display font-bold text-xs tracking-widest text-white">{{ label }}</div>
-      <div class="font-mono text-xs text-ops-muted mt-0.5">{{ sub }}</div>
+      <div class="font-mono text-xs text-ops-muted mt-0.5">{{ sub | safe }}</div>
     </div>
     {% endfor %}
   </div>

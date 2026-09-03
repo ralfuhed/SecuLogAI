@@ -199,6 +199,7 @@
         <tr class="text-ops-muted border-b border-ops-border text-left">
           <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Severity</th>
           <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Threat Type</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">ATT&amp;CK</th>
           <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Source IP</th>
           <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Evidence</th>
           <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Detected</th>
@@ -218,9 +219,32 @@
           </td>
           <td class="py-3 pr-4 text-ops-text">{{ t.threat_type }}</td>
 
+          <!-- ATT&CK technique. Unmapped findings say so rather than showing a
+               blank cell, so the absence reads as deliberate. -->
+          <td class="py-3 pr-4 whitespace-nowrap">
+            {% if t.technique %}
+              <a href="https://attack.mitre.org/techniques/{{ t.technique | replace('.', '/') }}/"
+                 target="_blank" rel="noopener" onclick="event.stopPropagation()"
+                 class="text-ops-purple hover:underline"
+                 title="{{ t.technique_name }} ({{ t.tactic }})">{{ t.technique }}</a>
+              {% if t.mapping_confidence == 'partial' %}
+                <span class="text-ops-muted/70 ml-1"
+                      title="Closest available technique; ATT&amp;CK does not cleanly cover this detection">~</span>
+              {% endif %}
+            {% else %}
+              <span class="text-ops-muted/50"
+                    title="A statistical outlier is not a named adversary behaviour">unmapped</span>
+            {% endif %}
+          </td>
+
           <!-- IP cell with copy button -->
           <td class="py-3 pr-4">
             <span class="text-ops-cyan">{{ t.ip }}</span>
+            {% if t.ioc_match %}
+              <span class="ml-1.5 text-[10px] uppercase tracking-wider text-ops-red
+                           border border-ops-red/40 rounded px-1 py-0.5"
+                    title="Source on indicator list as {{ t.ioc_match.category }}">IOC</span>
+            {% endif %}
             <button onclick="event.stopPropagation(); copyIP('{{ t.ip }}')"
               class="ml-1.5 text-ops-border hover:text-ops-cyan text-xs transition-colors"
               title="Copy IP">
@@ -581,6 +605,25 @@
           <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Threat Type</div>
           <div class="font-display text-xl font-bold tracking-wider text-white">${t.threat_type}</div>
         </div>
+        <div>
+          <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">MITRE ATT&amp;CK</div>
+          ${t.technique ? `
+            <a href="https://attack.mitre.org/techniques/${t.technique.replace('.', '/')}/"
+               target="_blank" rel="noopener"
+               class="font-mono text-sm text-ops-purple hover:underline">${t.technique}</a>
+            <span class="font-mono text-sm text-ops-text">${t.technique_name}</span>
+            <div class="font-mono text-xs text-ops-muted mt-0.5">Tactic: ${t.tactic}${
+              t.mapping_confidence === 'partial'
+                ? ' &middot; closest available fit' : ''}</div>`
+          : `<div class="font-mono text-sm text-ops-muted">Not mapped. A statistical outlier
+               is not a named adversary behaviour.</div>`}
+        </div>
+        ${t.ioc_match ? `
+        <div>
+          <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Threat Intelligence</div>
+          <div class="font-mono text-sm text-ops-red">Source listed as ${t.ioc_match.category}${
+            t.ioc_match.first_seen ? `, first seen ${t.ioc_match.first_seen}` : ''}</div>
+        </div>` : ''}
         <div class="grid grid-cols-2 gap-4">
           <div>
             <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Source IP</div>

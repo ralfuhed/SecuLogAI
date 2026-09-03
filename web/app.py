@@ -31,7 +31,7 @@ from analyzer.enrichment        import enrich_threats
 
 # Uploaded logs are attacker-controlled text by definition — this tool exists to
 # read hostile input. Everything below treats the upload path accordingly.
-ALLOWED_EXTENSIONS = {'.log', '.txt', '.csv'}
+ALLOWED_EXTENSIONS = {'.log', '.txt', '.csv', '.xml'}
 MAX_UPLOAD_BYTES   = 50 * 1024 * 1024
 
 logging.basicConfig(
@@ -328,6 +328,11 @@ def use_sample():
         if not os.path.isfile(path):
             import generate_sample_logs
             generate_sample_logs.gen_auth_log(path)
+    elif sample_type == 'windows':
+        path = os.path.join(base_dir, 'sample_security.xml')
+        if not os.path.isfile(path):
+            import generate_sample_logs
+            generate_sample_logs.gen_windows_log(path)
     else:
         path = os.path.join(base_dir, 'sample_access.log')
         if not os.path.isfile(path):
