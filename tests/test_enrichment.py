@@ -103,12 +103,28 @@ class TestEnrichment:
 
 
 class TestPipelineIntegration:
-    def test_sample_log_threat_is_escalated_and_annotated(self):
+    @pytest.fixture
+    def generated_auth_log(self, tmp_path):
+        """
+        Generate the log rather than reading data/sample_auth.log.
+
+        The sample logs are gitignored, so depending on one makes the test pass
+        only on a machine that happens to have run the generator.
+        """
+        import random
+
+        import generate_sample_logs
+        random.seed(42)
+        path = tmp_path / 'auth.log'
+        generate_sample_logs.gen_auth_log(str(path))
+        return str(path)
+
+    def test_sample_log_threat_is_escalated_and_annotated(self, generated_auth_log):
         """End to end: the bundled IOC list must reach real detections."""
         from analyzer.log_parser import auto_parse
         from analyzer.rule_engine import run_all_rules
 
-        events, log_type = auto_parse('data/sample_auth.log')
+        events, log_type = auto_parse(generated_auth_log)
         threats = enrich_threats(run_all_rules(events, log_type))
 
         listed = [t for t in threats if t['ip'] == '198.51.100.99']
