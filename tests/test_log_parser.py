@@ -86,6 +86,47 @@ class TestWebLogParser:
         assert parse_web_log(str(junk)) == []
 
 
+class TestPayloadsContainingSpaces:
+    """
+    Regression cover for a false-negative class: attack payloads with raw
+    spaces or quotes in the request path. A \\S+ path pattern drops these,
+    which means the parser silently discards the most interesting lines in
+    the log while reporting success.
+    """
+
+    def test_parses_every_line_including_spaced_payloads(self, fixture_path):
+        events = parse_web_log(fixture_path('web_spaced_payloads.log'))
+        assert len(events) == 6
+
+    def test_preserves_the_full_sql_payload(self, fixture_path):
+        events = parse_web_log(fixture_path('web_spaced_payloads.log'))
+        union = [e for e in events if 'UNION' in e['path']]
+        assert len(union) == 1
+        assert union[0]['path'] == '/products?id=1 UNION SELECT username,password FROM users--'
+
+    def test_handles_a_quote_inside_the_payload(self, fixture_path):
+        """The XSS payload contains an unescaped double quote."""
+        events = parse_web_log(fixture_path('web_spaced_payloads.log'))
+        xss = [e for e in events if 'onerror' in e['path']]
+        assert len(xss) == 1
+        assert xss[0]['status'] == 200
+
+    def test_spaced_payloads_reach_the_detection_rules(self, fixture_path):
+        """Parsing is only half of it — the rules must actually fire on them."""
+        from analyzer.rule_engine import run_all_rules
+        events = parse_web_log(fixture_path('web_spaced_payloads.log'))
+        threats = run_all_rules(events, 'web')
+        assert any(t['threat_type'] == 'SQL Injection Attempt' for t in threats)
+        sqli = [t for t in threats if t['threat_type'] == 'SQL Injection Attempt'][0]
+        assert sqli['count'] == 4
+
+    def test_status_and_size_still_parse_correctly(self, fixture_path):
+        """A lazy path match must not swallow the fields that follow it."""
+        events = parse_web_log(fixture_path('web_spaced_payloads.log'))
+        assert [e['status'] for e in events] == [500, 500, 500, 500, 200, 200]
+        assert events[-1]['size'] == 1043
+
+
 class TestAutoDetection:
     def test_detects_auth_log(self, fixture_path):
         events, log_type = auto_parse(fixture_path('auth_sample.log'))
