@@ -19,15 +19,15 @@ from datetime import datetime
 
 _AUTH_FAILED = re.compile(
     r'(?P<month>\w+)\s+(?P<day>\d+)\s+(?P<time>\S+)\s+\S+\s+sshd\[\d+\]:\s+'
-    r'Failed password for (?:invalid user )?(?P<user>\S+) from (?P<ip>[\d.]+) port \d+'
+    r'Failed password for (?:invalid user )?(?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+) port \d+'
 )
 _AUTH_ACCEPTED = re.compile(
     r'(?P<month>\w+)\s+(?P<day>\d+)\s+(?P<time>\S+)\s+\S+\s+sshd\[\d+\]:\s+'
-    r'Accepted (?:password|publickey) for (?P<user>\S+) from (?P<ip>[\d.]+) port \d+'
+    r'Accepted (?:password|publickey) for (?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+) port \d+'
 )
 _AUTH_INVALID = re.compile(
     r'(?P<month>\w+)\s+(?P<day>\d+)\s+(?P<time>\S+)\s+\S+\s+sshd\[\d+\]:\s+'
-    r'Invalid user (?P<user>\S+) from (?P<ip>[\d.]+)'
+    r'Invalid user (?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+)'
 )
 
 # ── Web log pattern ──────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ _AUTH_INVALID = re.compile(
 # path silently drops exactly those lines, turning the most interesting
 # traffic in the log into a false negative.
 _WEB_ACCESS = re.compile(
-    r'(?P<ip>[\d.]+)\s+-\s+-\s+\[(?P<timestamp>[^\]]+)\]\s+'
+    r'(?P<ip>[0-9a-fA-F:.]+)\s+-\s+-\s+\[(?P<timestamp>[^\]]+)\]\s+'
     r'"(?P<method>\w+)\s+(?P<path>.*?)\s+HTTP/[^"]*"\s+'
     r'(?P<status>\d+)\s+(?P<size>\d+|-)'
     r'(?:\s+"(?P<referer>[^"]*)"\s+"(?P<agent>[^"]*)")?'
