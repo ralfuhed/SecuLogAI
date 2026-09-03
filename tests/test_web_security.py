@@ -40,15 +40,26 @@ class TestSecretKey:
 
 
 class TestUploadHandling:
-    def test_rejects_path_traversal_in_filename(self, client, tmp_path):
+    def test_rejects_path_traversal_in_filename(self, client):
         """An upload named ../../pwned.log must not escape the upload folder."""
-        canary = os.path.join(app_module.UPLOAD_FOLDER, '..', '..', 'pwned.log')
+        canary = os.path.normpath(
+            os.path.join(app_module.UPLOAD_FOLDER, '..', '..', 'pwned.log')
+        )
+        # Clear any stale canary first, so a leftover file cannot make this
+        # test fail spuriously — or, worse, a missing one make it pass.
+        if os.path.exists(canary):
+            os.remove(canary)
+
         client.post(
             '/analyze',
             data={'logfile': (io.BytesIO(b'Jan 10 08:00:00 h sshd[1]: x'), '../../pwned.log')},
             content_type='multipart/form-data',
         )
-        assert not os.path.exists(canary)
+        assert not os.path.exists(canary), (
+            f'Upload escaped the upload folder and wrote to {canary}'
+        )
+        # The sanitised name should land inside the upload folder instead.
+        assert os.path.exists(os.path.join(app_module.UPLOAD_FOLDER, 'pwned.log'))
 
     def test_rejects_disallowed_extension(self, client):
         response = client.post(
