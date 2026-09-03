@@ -216,6 +216,52 @@ And in `analyzer/ml_detector.py`:
 contamination=0.1  # assume ~10% of IPs are outliers
 ```
 
+## MITRE ATT&CK Coverage
+
+Every detection is tagged with its ATT&CK technique, and the tag travels with
+the alert through the CLI, the dashboard and the JSON export — not just the
+README. Mappings were checked against attack.mitre.org (Enterprise **v19.2**);
+three of the first-draft guesses were wrong and are corrected here.
+
+| Detection | Technique | Name | Tactic | Fit |
+|---|---|---|---|---|
+| Brute Force Attack | `T1110.001` | Brute Force: Password Guessing | Credential Access | confirmed |
+| Credential Stuffing | `T1110` | Brute Force | Credential Access | partial |
+| SQL Injection Attempt | `T1190` | Exploit Public-Facing Application | Initial Access | confirmed |
+| Directory Traversal | `T1190` | Exploit Public-Facing Application | Initial Access | confirmed |
+| XSS Attempt | `T1190` | Exploit Public-Facing Application | Initial Access | partial |
+| Command Injection Attempt | `T1190` | Exploit Public-Facing Application | Initial Access | partial |
+| Path Scanner Detected | `T1595.003` | Active Scanning: Wordlist Scanning | Reconnaissance | confirmed |
+
+### Why some mappings say "partial"
+
+Four of these are honest approximations rather than clean matches, and the
+tool labels them as such instead of presenting seven confident IDs:
+
+- **Credential Stuffing → parent `T1110`.** An auth log never contains the
+  password, so many distinct usernames from one IP cannot be distinguished
+  from password spraying (`T1110.003`) or plain user enumeration. Claiming
+  `T1110.004` would assert something the log does not show.
+- **XSS → `T1190`.** ATT&CK Enterprise has no XSS technique. `T1189` Drive-by
+  Compromise is the only page that mentions cross-site scripting, and only for
+  stored XSS serving visitors. A reflected probe in an access log is an
+  exploitation attempt, so `T1190` is the closest true statement.
+- **Command Injection → `T1190`.** A web log proves the payload was *sent*,
+  never that it *ran*. Mapping to `T1059` would claim Execution occurred.
+- **Four detections share `T1190`.** That is a real property of the framework,
+  not lazy mapping: ATT&CK is deliberately coarse about web exploitation.
+
+ML anomalies are explicitly **unmapped**. A statistical outlier is not a named
+adversary behaviour, and inventing a technique for it would be the dishonest
+kind of coverage.
+
+### Sigma rules
+
+`rules/sigma/` carries Sigma-format equivalents of the core detections, so the
+logic is portable to a real SIEM rather than locked inside this codebase. The
+Python engine stays authoritative; a test asserts the two never drift to
+different technique IDs.
+
 ## Security Hardening Notes
 
 A tool that reads hostile input should be honest about its own attack surface.

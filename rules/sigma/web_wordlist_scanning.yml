@@ -1,0 +1,35 @@
+title: Wordlist Directory Scanning Against Web Server
+id: 6b45c767-4c83-4c09-b978-07bfadca6f7f
+status: experimental
+description: |
+  Detects a high volume of HTTP 404 responses to a single source address,
+  consistent with wordlist-driven directory and file enumeration by tools such
+  as dirb, gobuster or Nikto. Mirrors detect_scanner() in
+  analyzer/rule_engine.py.
+
+  Mapped to T1595.003 Wordlist Scanning rather than T1595.002 Vulnerability
+  Scanning: this rule counts 404 volume, which is enumeration. Detecting
+  vulnerability probing would mean matching signature payloads, not 404s.
+references:
+  - https://attack.mitre.org/techniques/T1595/003/
+author: ralfuhed
+date: 2026/09/03
+logsource:
+  category: webserver
+detection:
+  not_found:
+    sc-status: 404
+  timeframe: 10m
+  condition: not_found | count() by src_ip >= 20
+fields:
+  - src_ip
+  - c-uri
+  - c-useragent
+falsepositives:
+  - Search engine crawlers following stale links after a site restructure
+  - Broken asset references generating 404 bursts from ordinary visitors
+  - Uptime monitors probing removed endpoints
+level: medium
+tags:
+  - attack.reconnaissance
+  - attack.t1595.003

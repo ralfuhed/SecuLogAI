@@ -1,0 +1,46 @@
+title: SQL Injection Attempt In Web Request Path
+id: 4cb7e66f-bfc2-4f1c-b8d5-610397f7cc18
+status: experimental
+description: |
+  Detects SQL keywords, comment markers and tautologies in the request path of
+  a web access log. Mirrors detect_sql_injection() in analyzer/rule_engine.py.
+
+  Note for anyone porting this: the payloads that matter contain raw spaces
+  (`?id=1 UNION SELECT ...`). Any parser or field extraction that treats the
+  request path as a non-whitespace token will silently drop exactly the lines
+  this rule is meant to catch.
+references:
+  - https://attack.mitre.org/techniques/T1190/
+author: ralfuhed
+date: 2026/09/03
+logsource:
+  category: webserver
+detection:
+  sql_keywords:
+    c-uri|contains:
+      - 'UNION SELECT'
+      - 'OR 1=1'
+      - "' OR '"
+      - 'DROP TABLE'
+      - 'INSERT INTO'
+      - 'xp_cmdshell'
+      - 'sleep('
+      - 'benchmark('
+      - 'WAITFOR DELAY'
+  sql_comment_markers:
+    c-uri|contains:
+      - "'--"
+      - '%27'
+      - '%2D%2D'
+  condition: sql_keywords or sql_comment_markers
+fields:
+  - src_ip
+  - c-uri
+  - sc-status
+falsepositives:
+  - Search boxes and CMS editors where users legitimately submit SQL text
+  - Documentation pages whose URLs contain SQL examples
+level: high
+tags:
+  - attack.initial_access
+  - attack.t1190

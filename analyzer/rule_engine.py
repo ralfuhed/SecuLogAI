@@ -15,6 +15,8 @@ from collections import defaultdict
 from datetime import timedelta
 import re
 
+from analyzer.attack_mapping import technique_for
+
 # ── Tunable thresholds ───────────────────────────────────────────────────────
 BRUTE_FORCE_THRESHOLD  = 5    # failed logins within the window to trigger alert
 BRUTE_FORCE_WINDOW_MIN = 10   # sliding window size in minutes
@@ -57,9 +59,20 @@ _CMDI = re.compile(
 
 
 def _threat(threat_type, severity, ip, evidence, timestamp, count=1):
-    """Build a standardised threat dict."""
+    """
+    Build a standardised threat dict, tagged with its ATT&CK technique.
+
+    Every rule funnels through here, so a detection cannot ship without a
+    mapping — an unrecognised threat type gets the explicit 'unmapped' entry
+    rather than silently carrying no technique at all.
+    """
+    mapping = technique_for(threat_type)
     return {'threat_type': threat_type, 'severity': severity, 'ip': ip,
-            'evidence': evidence, 'timestamp': timestamp, 'count': count}
+            'evidence': evidence, 'timestamp': timestamp, 'count': count,
+            'technique': mapping['technique'],
+            'technique_name': mapping['technique_name'],
+            'tactic': mapping['tactic'],
+            'mapping_confidence': mapping['confidence']}
 
 
 # ── Auth rules ───────────────────────────────────────────────────────────────
