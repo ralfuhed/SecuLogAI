@@ -12,6 +12,7 @@ Routes:
 
 import os
 import json
+import logging
 import secrets
 import uuid
 import sys
@@ -32,6 +33,14 @@ from analyzer.enrichment        import enrich_threats
 # read hostile input. Everything below treats the upload path accordingly.
 ALLOWED_EXTENSIONS = {'.log', '.txt', '.csv'}
 MAX_UPLOAD_BYTES   = 50 * 1024 * 1024
+
+logging.basicConfig(
+    level=os.environ.get('SECULOG_LOG_LEVEL', 'INFO'),
+    format='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
+)
+# An audit trail matters more here than in an ordinary web app: this records
+# who submitted what for analysis, and every upload that was turned away.
+log = logging.getLogger('seculog')
 
 app = Flask(__name__)
 
@@ -239,6 +248,11 @@ def run_analysis(filepath: str, log_type_hint: str = 'auto') -> dict:
     with open(result_file, 'w') as f:
         json.dump(full_result, f)
 
+    log.info(
+        'Analysis %s complete: %d events, %d threats (%d critical), log_type=%s',
+        result_id, len(events), len(all_threats),
+        full_result['critical_count'], log_type,
+    )
     return full_result
 
 
@@ -260,23 +274,30 @@ def analyze():
     # overwriting source. It can return '' for a name that is entirely unsafe.
     filename = secure_filename(file.filename)
     if not filename:
+        log.warning('Upload rejected: filename %r sanitised to empty', file.filename)
         return render_template(
             'index.html',
             error='That filename cannot be used. Rename the file and try again.'
         )
 
     if os.path.splitext(filename)[1].lower() not in ALLOWED_EXTENSIONS:
+        log.warning('Upload rejected: disallowed extension on %r', filename)
         allowed = ', '.join(sorted(ALLOWED_EXTENSIONS))
         return render_template(
             'index.html',
             error=f'Unsupported file type. Upload a log file ({allowed}).'
         )
 
+    if filename != file.filename:
+        log.warning('Upload filename sanitised: %r -> %r', file.filename, filename)
+
     save_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(save_path)
+    log.info('Analysing upload %r', filename)
 
     results = run_analysis(save_path, request.form.get('log_type', 'auto'))
     if 'error' in results:
+        log.warning('Analysis of %r produced no events: %s', filename, results['error'])
         return render_template('index.html', error=results['error'])
 
     session['result_id'] = results['result_id']
@@ -286,6 +307,7 @@ def analyze():
 @app.errorhandler(413)
 def upload_too_large(_e):
     limit_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+    log.warning('Upload rejected: exceeded %d MB limit', limit_mb)
     return render_template(
         'index.html',
         error=f'That file is larger than the {limit_mb} MB limit.'

@@ -249,6 +249,30 @@ $ python cli.py analyze data/sample_auth.log
   Tip: run  python run_web.py  for the interactive dashboard.
 ```
 
+## Running in Docker
+
+```bash
+docker compose up --build
+# then open http://localhost:5000
+```
+
+The container is deliberately constrained, because this is a tool that ingests
+untrusted log data:
+
+| Setting | Reason |
+|---|---|
+| Runs as an unprivileged `seculog` user | A parser bug should not become a container escape |
+| `read_only: true` root filesystem | Only `data/results` (bind mount) and `data/uploads` (tmpfs) are writable |
+| `no-new-privileges: true` | Blocks privilege escalation via setuid binaries |
+| Port published to `127.0.0.1` only | The dashboard has no authentication; binding `0.0.0.0` would expose every analysed log to the network |
+| gunicorn, not the Flask dev server | The dev server is single-threaded and explicitly not meant to face anything |
+
+Binding `0.0.0.0` *inside* the container is correct — the container boundary is
+what limits reach there, and compose controls what is actually published.
+
+CI builds the image on every pull request and verifies it serves, runs as
+non-root, and can execute the analysis code.
+
 ## Configuration
 
 Tunable thresholds in `analyzer/rule_engine.py`:

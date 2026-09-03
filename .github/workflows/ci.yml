@@ -34,3 +34,38 @@ jobs:
           python generate_sample_logs.py
           python cli.py analyze data/sample_auth.log
           python cli.py analyze data/sample_access.log --type web
+          python cli.py analyze data/sample_security.xml --type windows
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t seculogai:ci .
+
+      - name: Confirm the container does not run as root
+        run: |
+          uid=$(docker run --rm --entrypoint id seculogai:ci -u)
+          echo "container uid: $uid"
+          test "$uid" != "0"
+
+      - name: Confirm the dashboard serves
+        run: |
+          docker run -d --name seculog -p 5000:5000 seculogai:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:5000/ > /dev/null; then
+              echo "dashboard responded"
+              docker rm -f seculog
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "dashboard did not respond in time; container logs:"
+          docker logs seculog
+          exit 1
+
+      - name: Confirm the CLI runs inside the image
+        run: |
+          docker run --rm --entrypoint python seculogai:ci \
+            -c "import generate_sample_logs as g; g.gen_auth_log('/tmp/a.log')"
