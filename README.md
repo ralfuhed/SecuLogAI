@@ -216,6 +216,41 @@ And in `analyzer/ml_detector.py`:
 contamination=0.1  # assume ~10% of IPs are outliers
 ```
 
+## Security Hardening Notes
+
+A tool that reads hostile input should be honest about its own attack surface.
+This section documents what has been hardened and, just as importantly, what
+has deliberately been left out of scope.
+
+### Hardened
+
+| Issue | Fix |
+|---|---|
+| Flask `secret_key` was a hardcoded literal in source | Read from `SECULOG_SECRET_KEY`, falling back to a random key generated at startup |
+| `app.run(debug=True)` — Werkzeug's debugger is an interactive Python console on any traceback, i.e. RCE for anyone who can reach the port | Off by default; opt in with `SECULOG_DEBUG=1` |
+| Uploaded filename used directly in a path, allowing `../../` traversal outside the upload folder | `werkzeug.utils.secure_filename` plus an extension allowlist (`.log`, `.txt`, `.csv`) |
+| No upload size limit | `MAX_CONTENT_LENGTH` capped at 50 MB, with a 413 handler |
+| An unparseable upload raised `KeyError` and returned a 500 with a stack trace | Errors are surfaced on the upload page instead |
+
+Configuration lives in environment variables — see `.env.example`. The server
+binds to `127.0.0.1` by default.
+
+### Deliberately out of scope
+
+**The dashboard has no authentication.** It is designed as a local analysis
+tool: you run it on your own machine, point it at your own logs, and read the
+results. Adding login screens to a single-user localhost tool would be
+security theatre.
+
+The consequence is real, though, so it is stated plainly rather than left for
+someone to discover: **do not bind this to `0.0.0.0` or expose it to a
+network.** Anyone who can reach the port can read every analysed log. If you
+need multi-user access, put an authenticating reverse proxy in front of it —
+don't rely on the app.
+
+Analysis results are written unencrypted to `data/results/` as JSON. Log data
+is sensitive; treat that directory the way you would treat the logs themselves.
+
 ## Accuracy & Ground Truth
 
 If analyzing a labeled CSV dataset (like `ssh_anomaly_dataset.csv`), the web dashboard displays:
