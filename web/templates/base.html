@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}SecuLog AI{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+
+  <!-- Google Fonts: Barlow Condensed (headings) + JetBrains Mono (data) + Barlow (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Barlow Condensed', 'sans-serif'],
+            mono:    ['JetBrains Mono', 'monospace'],
+            sans:    ['Barlow', 'sans-serif'],
+          },
+          colors: {
+            ops: {
+              bg:     '#050b14',
+              card:   '#0a1628',
+              border: '#152238',
+              cyan:   '#22d3ee',
+              green:  '#4ade80',
+              amber:  '#fbbf24',
+              red:    '#f43f5e',
+              purple: '#a78bfa',
+              text:   '#e2e8f0',
+              muted:  '#64748b',
+              dim:    '#1e2d42',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: 'Barlow', sans-serif;
+      background-color: #050b14;
+      /* Subtle grid texture: two overlapping sets of faint lines */
+      background-image:
+        linear-gradient(rgba(21,34,56,0.5) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(21,34,56,0.5) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* ── Custom scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #0a1628; }
+    ::-webkit-scrollbar-thumb { background: #1e2d42; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: #22d3ee44; }
+
+    /* ── Bracket-corner card decoration ──
+       Adds a cyan L-shaped bracket in top-left and bottom-right corners */
+    .bracket-card { position: relative; }
+    .bracket-card::before,
+    .bracket-card::after {
+      content: '';
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      pointer-events: none;
+    }
+    .bracket-card::before {
+      top: -1px; left: -1px;
+      border-top: 1px solid #22d3ee55;
+      border-left: 1px solid #22d3ee55;
+    }
+    .bracket-card::after {
+      bottom: -1px; right: -1px;
+      border-bottom: 1px solid #22d3ee55;
+      border-right: 1px solid #22d3ee55;
+    }
+
+    /* ── Severity badge styles ── */
+    .badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700;
+             letter-spacing: 0.08em; font-family: 'JetBrains Mono', monospace; }
+    .badge-critical { background: rgba(244,63,94,0.15); color: #f43f5e; border: 1px solid rgba(244,63,94,0.3); }
+    .badge-high     { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+    .badge-medium   { background: rgba(34,211,238,0.15); color: #22d3ee; border: 1px solid rgba(34,211,238,0.3); }
+    .badge-low      { background: rgba(100,116,139,0.15);color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
+    .badge-ml       { background: rgba(167,139,250,0.15); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); }
+
+    /* ── CRITICAL pulse glow ── */
+    @keyframes pulse-red {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0.3); }
+      50%       { box-shadow: 0 0 0 6px rgba(244,63,94,0); }
+    }
+    .pulse-dot { animation: pulse-red 2s ease-in-out infinite; }
+
+    /* ── Staggered fade-up entrance animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.45s ease both; }
+    .d1 { animation-delay: 0.05s; }
+    .d2 { animation-delay: 0.12s; }
+    .d3 { animation-delay: 0.19s; }
+    .d4 { animation-delay: 0.26s; }
+    .d5 { animation-delay: 0.33s; }
+
+    /* ── Threat table row hover ── */
+    .threat-row { cursor: pointer; transition: background 0.12s; }
+    .threat-row:hover { background: rgba(34,211,238,0.04) !important; }
+
+    /* ── Side-panel modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(5,11,20,0.8);
+      backdrop-filter: blur(6px);
+      z-index: 50;
+      display: none;
+    }
+    .modal-backdrop.open { display: block; }
+    .modal-panel {
+      position: fixed; top: 0; right: 0;
+      width: min(440px, 95vw);
+      height: 100vh;
+      background: #0a1628;
+      border-left: 1px solid #152238;
+      padding: 1.75rem;
+      overflow-y: auto;
+      z-index: 51;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+    }
+    .modal-backdrop.open + .modal-panel { transform: translateX(0); }
+
+    /* ── Toast notification ── */
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: #0a1628; border: 1px solid rgba(34,211,238,0.3);
+      color: #22d3ee; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      padding: 10px 16px; border-radius: 8px;
+      opacity: 0; transition: opacity 0.25s; z-index: 99;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; }
+
+    /* ── Filter buttons active state ── */
+    .filter-btn.active {
+      background: rgba(34,211,238,0.1);
+      border-color: rgba(34,211,238,0.4);
+      color: #22d3ee;
+    }
+
+    /* ── Animated number counter ── */
+    .counter { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+
+<body class="text-ops-text min-h-screen">
+
+  <!-- ── Top navigation bar ── -->
+  <nav class="sticky top-0 z-40 bg-ops-card/90 backdrop-blur-md border-b border-ops-border">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-2.5 group">
+        <div class="w-8 h-8 rounded-md bg-ops-cyan/10 border border-ops-cyan/25
+                    flex items-center justify-center group-hover:border-ops-cyan/50 transition-colors">
+          <svg class="w-4 h-4 text-ops-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944
+                 a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9
+                 c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622
+                 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        <span class="font-display text-lg font-bold tracking-widest text-white">
+          SECU<span class="text-ops-cyan">LOG</span>
+          <span class="text-ops-muted font-normal text-xs tracking-wider ml-1">AI</span>
+        </span>
+      </a>
+
+      <!-- Right: system status pill -->
+      <div class="flex items-center gap-4">
+        {% block nav_extra %}{% endblock %}
+        <div class="flex items-center gap-1.5 font-mono text-xs text-ops-muted">
+          <span class="w-1.5 h-1.5 rounded-full bg-ops-green animate-pulse"></span>
+          ONLINE
+        </div>
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- ── Main content ── -->
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="max-w-7xl mx-auto px-6 py-6 mt-8 border-t border-ops-border
+                 font-mono text-xs text-center tracking-widest">
+    <div class="text-ops-border mb-1">
+      SECULOG AI &nbsp;//&nbsp; PYTHON &middot; FLASK &middot; SCIKIT-LEARN &middot; TAILWIND &middot; CHART.JS
+    </div>
+    <div class="text-ops-muted">
+      Created by <span class="text-ops-cyan">Rashed Al Fuhed</span>
+    </div>
+  </footer>
+
+  <!-- ── Global toast ── -->
+  <div id="toast">IP copied to clipboard</div>
+
+  <!-- ── Global JS utilities ── -->
+  <script>
+    function copyIP(ip) {
+      navigator.clipboard.writeText(ip).then(() => {
+        const t = document.getElementById('toast');
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2000);
+      });
+    }
+  </script>
+
+</body>
+</html>

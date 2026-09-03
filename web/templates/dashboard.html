@@ -1,0 +1,649 @@
+{% extends "base.html" %}
+{% block title %}SecuLog AI — Threat Report{% endblock %}
+
+{% block nav_extra %}
+<a href="/"
+   class="font-mono text-xs border border-ops-border text-ops-muted
+          hover:border-ops-cyan/40 hover:text-ops-cyan px-3 py-1.5 rounded-lg transition-all">
+  [← NEW ANALYSIS]
+</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ── -->
+<div class="flex flex-wrap items-start justify-between gap-4 mb-8 fade-up d1">
+  <div>
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-1">
+      // Analysis Report &nbsp;&middot;&nbsp; {{ results.log_type | upper }} Log
+    </div>
+    <h1 class="font-display text-4xl font-bold tracking-widest text-white flex items-center gap-3">
+      THREAT INTELLIGENCE
+      {% if results.critical_count > 0 %}
+        <span class="w-2.5 h-2.5 rounded-full bg-ops-red pulse-dot inline-block"></span>
+      {% endif %}
+    </h1>
+    <div class="font-mono text-xs text-ops-muted mt-1">
+      {{ results.filename }} &nbsp;&middot;&nbsp; {{ results.total_events | int }} events processed
+    </div>
+  </div>
+</div>
+
+<!-- ── Summary stat cards ── -->
+<div class="grid grid-cols-2 {% if results.has_ground_truth %}lg:grid-cols-5{% else %}lg:grid-cols-4{% endif %} gap-4 mb-8">
+
+  <!-- EVENTS PARSED → opens & scrolls to raw log -->
+  <div class="bracket-card bg-ops-card border border-ops-border rounded-xl p-5
+              fade-up d1 cursor-pointer group hover:border-ops-cyan/30 transition-colors"
+       onclick="openAndScrollRaw()" title="View raw event log">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2
+                flex items-center justify-between">
+      EVENTS PARSED
+      <span class="opacity-0 group-hover:opacity-100 transition-opacity text-ops-cyan">↓</span>
+    </div>
+    <div class="font-display text-4xl font-bold text-ops-text counter"
+         data-target="{{ results.total_events }}">0</div>
+  </div>
+
+  <!-- UNIQUE IPs → full IP roster page -->
+  <a href="/detail?result_id={{ results.result_id }}&type=all_ips"
+     class="bracket-card bg-ops-card border border-ops-border rounded-xl p-5
+            fade-up d2 group hover:border-ops-cyan/30 transition-colors block">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2
+                flex items-center justify-between">
+      UNIQUE IPs
+      <span class="opacity-0 group-hover:opacity-100 transition-opacity text-ops-cyan">→</span>
+    </div>
+    <div class="font-display text-4xl font-bold text-ops-cyan counter"
+         data-target="{{ results.unique_ips }}">0</div>
+  </a>
+
+  <!-- THREATS FOUND → scrolls to threat table -->
+  <div class="bracket-card bg-ops-card border border-ops-border rounded-xl p-5
+              fade-up d3 cursor-pointer group
+              {{ 'hover:border-ops-amber/30' if results.total_threats > 0 else 'hover:border-ops-green/30' }}
+              transition-colors"
+       onclick="scrollToThreats('ALL')" title="View all threats">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2
+                flex items-center justify-between">
+      THREATS FOUND
+      <span class="opacity-0 group-hover:opacity-100 transition-opacity
+                   {{ 'text-ops-amber' if results.total_threats > 0 else 'text-ops-green' }}">↓</span>
+    </div>
+    <div class="font-display text-4xl font-bold counter
+                {{ 'text-ops-amber' if results.total_threats > 0 else 'text-ops-green' }}"
+         data-target="{{ results.total_threats }}">0</div>
+  </div>
+
+  <!-- CRITICAL → filters threat table to CRITICAL only -->
+  <div class="bracket-card bg-ops-card border border-ops-border rounded-xl p-5
+              fade-up d4 cursor-pointer group
+              {{ 'hover:border-ops-red/30' if results.critical_count > 0 else '' }}
+              transition-colors"
+       onclick="scrollToThreats('CRITICAL')" title="Filter critical threats">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2
+                flex items-center justify-between">
+      CRITICAL
+      <span class="opacity-0 group-hover:opacity-100 transition-opacity text-ops-red">↓</span>
+    </div>
+    <div class="font-display text-4xl font-bold counter
+                {{ 'text-ops-red' if results.critical_count > 0 else 'text-ops-muted' }}"
+         data-target="{{ results.critical_count }}">0</div>
+  </div>
+
+  <!-- Detection Rate card — only shown when CSV ground truth is available -->
+  {% if results.has_ground_truth %}
+  <div class="bracket-card bg-ops-card border border-ops-green/30 rounded-xl p-5 fade-up d5
+              cursor-pointer group hover:border-ops-green/50 transition-colors"
+       onclick="scrollToThreats('ALL')" title="View all detected threats">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-1
+                flex items-center justify-between">
+      DETECTION RATE
+      <span class="opacity-0 group-hover:opacity-100 transition-opacity text-ops-green">↓</span>
+    </div>
+    <div class="font-mono text-xs text-ops-muted mb-2">Ground Truth</div>
+    <div class="font-display text-4xl font-bold text-ops-green">
+      {{ results.detection_rate }}%
+    </div>
+    <div class="font-mono text-xs text-ops-muted mt-1">
+      {{ results.true_positives }} / {{ results.gt_attack_ips }} attack IPs caught
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ── Charts row ── -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
+
+  <!-- Event timeline (line chart) -->
+  <div class="lg:col-span-2 bg-ops-card border border-ops-border rounded-xl p-5 fade-up d2">
+    <div class="flex items-center justify-between mb-4">
+      <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
+        // Event Timeline
+      </div>
+      <div class="font-mono text-xs text-ops-border">Click point → drill down</div>
+    </div>
+    <canvas id="timelineChart" height="110"></canvas>
+  </div>
+
+  <!-- Threat type doughnut -->
+  <div class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d3">
+    <div class="flex items-center justify-between mb-4">
+      <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
+        // Threat Distribution
+      </div>
+      <div class="font-mono text-xs text-ops-border">Click → drill down</div>
+    </div>
+    {% if results.type_labels %}
+      <canvas id="typeChart"></canvas>
+    {% else %}
+      <div class="h-40 flex items-center justify-center font-mono text-xs text-ops-muted">
+        [NO THREATS DETECTED]
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── IP anomaly bar chart (ML) ── -->
+{% if results.ip_chart %}
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 mb-8 fade-up d3">
+  <div class="flex items-center justify-between mb-4">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
+      // IP Anomaly Scores &nbsp;&middot;&nbsp;
+      <span class="badge badge-ml">ML — Isolation Forest</span>
+    </div>
+    <div class="font-mono text-xs text-ops-border">Click bar → IP deep dive</div>
+  </div>
+  <canvas id="ipChart" height="80"></canvas>
+</div>
+{% endif %}
+
+<!-- ── Threat table ── -->
+<div id="threats-section" class="bg-ops-card border border-ops-border rounded-xl p-5 mb-6 fade-up d4">
+
+  <!-- Table header + controls -->
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
+      // Detected Threats
+      <span id="visible-count" class="text-ops-border ml-2"></span>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Search -->
+      <input id="search-input" type="text" placeholder="Search IP, type..."
+        class="bg-ops-bg border border-ops-border text-ops-text font-mono text-xs
+               rounded-lg px-3 py-1.5 w-44 focus:outline-none focus:border-ops-cyan/50
+               transition-colors placeholder:text-ops-border">
+
+      <!-- Severity filter tabs -->
+      <div class="flex gap-1" id="filter-bar">
+        {% for f in ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'ML'] %}
+        <button class="filter-btn {% if f == 'ALL' %}active{% endif %}
+                       font-mono text-xs px-2.5 py-1.5 rounded border
+                       border-ops-border text-ops-muted hover:text-ops-text
+                       transition-all"
+                data-filter="{{ f }}">
+          {{ f }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if results.threats %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs font-mono">
+      <thead>
+        <tr class="text-ops-muted border-b border-ops-border text-left">
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Severity</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Threat Type</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Source IP</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Evidence</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Detected</th>
+          <th class="pb-2.5    font-normal uppercase tracking-wider">Action</th>
+        </tr>
+      </thead>
+      <tbody id="threats-tbody" class="divide-y divide-ops-border/40">
+        {% for t in results.threats %}
+        <tr class="threat-row"
+            data-sev="{{ t.severity }}"
+            data-ml="{{ 'true' if 'ML' in t.threat_type else 'false' }}"
+            data-search="{{ (t.ip ~ ' ' ~ t.threat_type ~ ' ' ~ t.evidence) | lower }}"
+            onclick="openModal({{ loop.index0 }})">
+
+          <td class="py-3 pr-4">
+            <span class="badge badge-{{ t.severity | lower }}">{{ t.severity }}</span>
+          </td>
+          <td class="py-3 pr-4 text-ops-text">{{ t.threat_type }}</td>
+
+          <!-- IP cell with copy button -->
+          <td class="py-3 pr-4">
+            <span class="text-ops-cyan">{{ t.ip }}</span>
+            <button onclick="event.stopPropagation(); copyIP('{{ t.ip }}')"
+              class="ml-1.5 text-ops-border hover:text-ops-cyan text-xs transition-colors"
+              title="Copy IP">
+              ⎘
+            </button>
+          </td>
+
+          <td class="py-3 pr-4 text-ops-muted max-w-xs truncate" title="{{ t.evidence }}">
+            {{ t.evidence }}
+          </td>
+          <td class="py-3 pr-4 text-ops-muted whitespace-nowrap">{{ t.timestamp }}</td>
+
+          <!-- Deep Dive button -->
+          <td class="py-3">
+            <a href="/detail?result_id={{ results.result_id }}&type=ip&value={{ t.ip }}"
+               onclick="event.stopPropagation()"
+               class="font-mono text-xs border border-ops-border text-ops-muted
+                      hover:border-ops-cyan/50 hover:text-ops-cyan px-2 py-1 rounded
+                      transition-all whitespace-nowrap">
+              → Deep Dive
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Empty state when filters match nothing -->
+    <div id="no-match" class="hidden text-center py-8 font-mono text-xs text-ops-muted">
+      [NO THREATS MATCH CURRENT FILTER]
+    </div>
+  </div>
+
+  {% else %}
+  <div class="text-center py-12">
+    <div class="font-mono text-xs text-ops-green mb-2">[STATUS: CLEAN]</div>
+    <div class="font-display text-2xl font-bold tracking-widest text-ops-green mb-1">
+      NO THREATS DETECTED
+    </div>
+    <div class="font-mono text-xs text-ops-muted">
+      Log appears clean based on current detection rules and ML thresholds.
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ── Raw Events Log (collapsible) ── -->
+{% if results.raw_events %}
+<div id="raw-events-section" class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d5">
+
+  <button id="raw-toggle" onclick="toggleRaw()"
+    class="w-full flex items-center justify-between group">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
+      // Raw Event Log
+      <span class="text-ops-border ml-2">
+        ({{ results.raw_events | length }} of {{ results.raw_events_total }} events)
+      </span>
+    </div>
+    <span id="raw-icon" class="font-mono text-xs text-ops-border
+                                group-hover:text-ops-cyan transition-colors">
+      [EXPAND]
+    </span>
+  </button>
+
+  <div id="raw-panel" class="hidden mt-4">
+    <div class="overflow-x-auto max-h-72 overflow-y-auto rounded-lg
+                border border-ops-border">
+      <table class="w-full text-xs font-mono">
+        <thead class="sticky top-0 bg-ops-card border-b border-ops-border">
+          <tr class="text-ops-muted text-left">
+            <th class="py-2 px-3 font-normal uppercase tracking-wider">Timestamp</th>
+            <th class="py-2 px-3 font-normal uppercase tracking-wider">IP</th>
+            <th class="py-2 px-3 font-normal uppercase tracking-wider">Event</th>
+            {% if results.has_ground_truth %}
+            <th class="py-2 px-3 font-normal uppercase tracking-wider">Ground Truth</th>
+            {% endif %}
+            <th class="py-2 px-3 font-normal uppercase tracking-wider">Raw Line</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-ops-border/30">
+          {% for e in results.raw_events %}
+          <tr class="hover:bg-ops-cyan/5 transition-colors">
+            <td class="py-1.5 px-3 text-ops-muted whitespace-nowrap">{{ e.timestamp }}</td>
+            <td class="py-1.5 px-3 text-ops-cyan">{{ e.ip }}</td>
+            <td class="py-1.5 px-3 text-ops-text">{{ e.event }}</td>
+            {% if results.has_ground_truth %}
+            <td class="py-1.5 px-3 whitespace-nowrap">
+              {% if e.label and e.label != 'normal' %}
+                <span class="badge badge-high">{{ e.label }}</span>
+              {% else %}
+                <span class="font-mono text-xs text-ops-muted">normal</span>
+              {% endif %}
+            </td>
+            {% endif %}
+            <td class="py-1.5 px-3 text-ops-muted max-w-xs truncate" title="{{ e.raw }}">
+              {{ e.raw[:90] }}{% if e.raw | length > 90 %}&hellip;{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endif %}
+
+
+<!-- ── Threat detail side-panel modal ── -->
+<div id="modal-backdrop" class="modal-backdrop" onclick="closeModal()"></div>
+<div id="modal-panel" class="modal-panel">
+  <div class="flex items-center justify-between mb-6">
+    <span class="font-mono text-xs text-ops-cyan uppercase tracking-widest">// Threat Detail</span>
+    <button onclick="closeModal()" class="font-mono text-xs text-ops-muted hover:text-ops-cyan transition-colors">
+      [CLOSE ×]
+    </button>
+  </div>
+  <div id="modal-body"></div>
+</div>
+
+
+<!-- ── Scripts ── -->
+<script>
+  // Data injected from Flask/Jinja
+  const timelineLabels = {{ results.timeline_labels | tojson }};
+  const timelineValues = {{ results.timeline_values | tojson }};
+  const typeLabels     = {{ results.type_labels     | tojson }};
+  const typeValues     = {{ results.type_values     | tojson }};
+  const ipChartData    = {{ results.ip_chart        | tojson }};
+  const allThreats     = {{ results.threats         | tojson }};
+  const resultId       = {{ results.result_id       | tojson }};
+
+  // ── Animated number counters ──────────────────────────────────────────────
+  document.querySelectorAll('.counter').forEach(el => {
+    const target = parseInt(el.dataset.target, 10);
+    const dur    = 700;
+    const start  = performance.now();
+    const tick   = now => {
+      const p = Math.min((now - start) / dur, 1);
+      el.textContent = Math.floor(p * target).toLocaleString();
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    setTimeout(() => requestAnimationFrame(tick), 250);
+  });
+
+  // ── Chart.js shared defaults ──────────────────────────────────────────────
+  Chart.defaults.color        = '#64748b';
+  Chart.defaults.borderColor  = '#152238';
+  Chart.defaults.font.family  = 'JetBrains Mono';
+  Chart.defaults.font.size    = 10;
+
+  // ── Shared click-cursor plugin ──────────────────────────────────────────────
+  const clickCursorPlugin = {
+    id: 'clickCursor',
+    afterEvent(chart, args) {
+      const e = args.event;
+      const pts = chart.getElementsAtEventForMode(e.native, 'nearest', { intersect: true }, true);
+      chart.canvas.style.cursor = pts.length ? 'pointer' : 'default';
+    }
+  };
+
+  // ── Timeline (line) — click point → hour drill-down ──────────────────────
+  new Chart(document.getElementById('timelineChart'), {
+    type: 'line',
+    plugins: [clickCursorPlugin],
+    data: {
+      labels: timelineLabels,
+      datasets: [{
+        label: 'Events/hr',
+        data: timelineValues,
+        borderColor: '#22d3ee',
+        backgroundColor: 'rgba(34,211,238,0.07)',
+        borderWidth: 1.5,
+        pointRadius: 4,
+        pointHoverRadius: 7,
+        pointBackgroundColor: '#22d3ee',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: '#22d3ee',
+        pointHoverBorderWidth: 2,
+        fill: true,
+        tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            footer: () => '🔍 Click to drill down'
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8 }, grid: { color: 'rgba(21,34,56,0.9)' } },
+        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(21,34,56,0.9)' } }
+      },
+      onClick(evt, elements) {
+        if (elements.length > 0) {
+          const hour = timelineLabels[elements[0].index];
+          window.location.href = `/detail?result_id=${resultId}&type=hour&value=${encodeURIComponent(hour)}`;
+        }
+      }
+    }
+  });
+
+  // ── Threat type doughnut — click segment → threat-type drill-down ────────
+  if (typeLabels.length > 0) {
+    new Chart(document.getElementById('typeChart'), {
+      type: 'doughnut',
+      plugins: [clickCursorPlugin],
+      data: {
+        labels: typeLabels,
+        datasets: [{
+          data: typeValues,
+          backgroundColor: ['#f43f5e','#fbbf24','#22d3ee','#4ade80','#a78bfa','#fb923c'],
+          borderWidth: 0,
+          hoverOffset: 10,
+        }]
+      },
+      options: {
+        responsive: true,
+        cutout: '62%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 10, boxWidth: 8, font: { size: 10 } } },
+          tooltip: {
+            callbacks: { footer: () => '🔍 Click to drill down' }
+          }
+        },
+        onClick(evt, elements) {
+          if (elements.length > 0) {
+            const type = typeLabels[elements[0].index];
+            window.location.href = `/detail?result_id=${resultId}&type=threat_type&value=${encodeURIComponent(type)}`;
+          }
+        }
+      }
+    });
+  }
+
+  // ── IP anomaly bar chart — click bar → IP drill-down ─────────────────────
+  if (ipChartData.length > 0) {
+    new Chart(document.getElementById('ipChart'), {
+      type: 'bar',
+      plugins: [clickCursorPlugin],
+      data: {
+        labels: ipChartData.map(r => r.ip),
+        datasets: [{
+          label: 'Anomaly Score',
+          data: ipChartData.map(r => r.anomaly_score),
+          backgroundColor: ipChartData.map(r =>
+            r.anomaly_score >= 0.85 ? 'rgba(244,63,94,0.7)'  :
+            r.anomaly_score >= 0.65 ? 'rgba(251,191,36,0.7)' :
+                                      'rgba(34,211,238,0.5)'
+          ),
+          hoverBackgroundColor: ipChartData.map(r =>
+            r.anomaly_score >= 0.85 ? 'rgba(244,63,94,1)'  :
+            r.anomaly_score >= 0.65 ? 'rgba(251,191,36,1)' :
+                                      'rgba(34,211,238,0.85)'
+          ),
+          borderRadius: 3,
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { footer: () => '🔍 Click to drill down' } }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, max: 1.0, grid: { color: 'rgba(21,34,56,0.9)' } }
+        },
+        onClick(evt, elements) {
+          if (elements.length > 0) {
+            const ip = ipChartData[elements[0].index].ip;
+            window.location.href = `/detail?result_id=${resultId}&type=ip&value=${encodeURIComponent(ip)}`;
+          }
+        }
+      }
+    });
+  }
+
+  // ── Filter + search ───────────────────────────────────────────────────────
+  let activeFilter = 'ALL';
+
+  function applyFilters() {
+    const q    = document.getElementById('search-input').value.toLowerCase();
+    const rows = document.querySelectorAll('#threats-tbody tr');
+    let   n    = 0;
+
+    rows.forEach(r => {
+      const sev    = r.dataset.sev;
+      const isML   = r.dataset.ml === 'true';
+      const text   = r.dataset.search;
+      const fMatch = activeFilter === 'ALL'
+                  || sev === activeFilter
+                  || (activeFilter === 'ML' && isML);
+      const sMatch = !q || text.includes(q);
+      r.style.display = (fMatch && sMatch) ? '' : 'none';
+      if (fMatch && sMatch) n++;
+    });
+
+    document.getElementById('no-match').style.display = n === 0 ? 'block' : 'none';
+    const lbl = document.getElementById('visible-count');
+    if (lbl) lbl.textContent = `(${n} shown)`;
+  }
+
+  // Wire filter buttons
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.dataset.filter;
+      applyFilters();
+    });
+  });
+
+  document.getElementById('search-input')?.addEventListener('input', applyFilters);
+
+  // Set initial count label
+  applyFilters();
+
+  // ── Raw events toggle ─────────────────────────────────────────────────────
+  function toggleRaw() {
+    const panel = document.getElementById('raw-panel');
+    const icon  = document.getElementById('raw-icon');
+    const isHidden = panel.classList.toggle('hidden');
+    icon.textContent = isHidden ? '[EXPAND]' : '[COLLAPSE]';
+  }
+
+  // ── Threat detail modal ───────────────────────────────────────────────────
+  function openModal(idx) {
+    const t = allThreats[idx];
+    if (!t) return;
+
+    const sevBadge = {
+      CRITICAL: 'badge-critical', HIGH: 'badge-high',
+      MEDIUM:   'badge-medium',   LOW:  'badge-low',
+    }[t.severity] || 'badge-low';
+
+    const mlNote = (t.source === 'ml') ? `
+      <div class="bg-ops-purple/10 border border-ops-purple/30 rounded-lg p-3 mt-4">
+        <div class="font-mono text-xs text-ops-purple mb-1 uppercase tracking-wider">ML Detection</div>
+        <div class="font-mono text-xs text-ops-muted leading-relaxed">
+          Flagged by Isolation Forest. This IP's behaviour deviates statistically
+          from all other IPs in the log — no rule signature required.
+        </div>
+      </div>` : '';
+
+    document.getElementById('modal-body').innerHTML = `
+      <div class="space-y-5">
+        <div>
+          <span class="badge ${sevBadge} text-xs">${t.severity}</span>
+        </div>
+        <div>
+          <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Threat Type</div>
+          <div class="font-display text-xl font-bold tracking-wider text-white">${t.threat_type}</div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Source IP</div>
+            <div class="font-mono text-sm text-ops-cyan flex items-center gap-2">
+              ${t.ip}
+              <button onclick="copyIP('${t.ip}')"
+                class="text-ops-border hover:text-ops-cyan text-xs transition-colors" title="Copy">⎘</button>
+            </div>
+          </div>
+          <div>
+            <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Event Count</div>
+            <div class="font-display text-3xl font-bold text-white">${t.count}</div>
+          </div>
+        </div>
+        <div>
+          <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Evidence</div>
+          <div class="bg-ops-bg border border-ops-border rounded-lg p-3
+                      font-mono text-xs text-ops-text leading-relaxed">
+            ${t.evidence}
+          </div>
+        </div>
+        <div>
+          <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">First Detected</div>
+          <div class="font-mono text-xs text-ops-text">${t.timestamp}</div>
+        </div>
+        ${mlNote}
+      </div>`;
+
+    document.getElementById('modal-backdrop').classList.add('open');
+    // Delay so the backdrop renders before we slide the panel in
+    setTimeout(() => document.getElementById('modal-panel').style.transform = 'translateX(0)', 10);
+  }
+
+  function closeModal() {
+    document.getElementById('modal-panel').style.transform = 'translateX(100%)';
+    setTimeout(() => document.getElementById('modal-backdrop').classList.remove('open'), 280);
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // ── Stat card click helpers ───────────────────────────────────────────────
+  function scrollToThreats(filter) {
+    // Apply filter first
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.filter-btn[data-filter="${filter}"]`);
+    if (btn) btn.classList.add('active');
+    activeFilter = filter;
+    applyFilters();
+    // Scroll
+    const el = document.getElementById('threats-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function openAndScrollRaw() {
+    const panel = document.getElementById('raw-panel');
+    const icon  = document.getElementById('raw-icon');
+    if (panel && panel.classList.contains('hidden')) {
+      panel.classList.remove('hidden');
+      if (icon) icon.textContent = '[COLLAPSE]';
+    }
+    const el = document.getElementById('raw-events-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>
+
+{% endblock %}

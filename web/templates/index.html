@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}SecuLog AI — Threat Analysis{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+
+  <!-- ── Hero ── -->
+  <div class="text-center mb-10 fade-up d1">
+    <div class="inline-flex items-center gap-2 bg-ops-cyan/10 border border-ops-cyan/20
+                rounded-full px-4 py-1.5 mb-6 font-mono text-xs text-ops-cyan">
+      <span class="w-1.5 h-1.5 rounded-full bg-ops-cyan animate-pulse"></span>
+      AI-POWERED DETECTION ACTIVE
+    </div>
+    <h1 class="font-display text-5xl font-bold tracking-widest text-white leading-none mb-3">
+      SECURITY LOG<br>
+      <span class="text-ops-cyan">INTELLIGENCE</span>
+    </h1>
+    <p class="text-ops-muted text-sm leading-relaxed">
+      Upload SSH auth or web server logs. Rule-based signatures &plus; Isolation Forest ML
+      detect brute force, SQL injection, anomalous behaviour — instantly.
+    </p>
+  </div>
+
+  <!-- ── Error banner ── -->
+  {% if error %}
+  <div class="mb-5 bg-ops-red/10 border border-ops-red/30 text-ops-red rounded-lg
+              px-4 py-3 font-mono text-xs fade-up">
+    [ERROR] {{ error }}
+  </div>
+  {% endif %}
+
+  <!-- ── Upload card ── -->
+  <div class="bracket-card bg-ops-card border border-ops-border rounded-xl p-7 mb-4 fade-up d2">
+    <p class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-5">// Upload Target</p>
+
+    <form id="upload-form" action="/analyze" method="post" enctype="multipart/form-data" class="space-y-4">
+
+      <!-- Dropzone -->
+      <label id="dropzone"
+        class="flex flex-col items-center justify-center w-full h-32 rounded-lg
+               border border-dashed border-ops-border cursor-pointer
+               hover:border-ops-cyan/50 hover:bg-ops-cyan/5 transition-all group">
+        <svg id="dz-icon" class="w-8 h-8 text-ops-muted mb-2 group-hover:text-ops-cyan transition-colors"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+        </svg>
+        <span id="dz-label" class="font-mono text-xs text-ops-muted">DROP FILE / CLICK TO SELECT</span>
+        <span id="dz-sub"   class="font-mono text-xs text-ops-border mt-1">.log &nbsp; .txt &nbsp; plain-text</span>
+        <input type="file" name="logfile" id="file-input"
+               accept=".log,.txt,text/plain" class="hidden" required />
+      </label>
+
+      <!-- Log type + submit row -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-mono text-xs text-ops-muted uppercase tracking-wider mb-1.5">
+            Log Type
+          </label>
+          <select name="log_type"
+            class="w-full bg-ops-bg border border-ops-border text-ops-text font-mono text-xs
+                   rounded-lg px-3 py-2.5 focus:outline-none focus:border-ops-cyan/50 transition-colors">
+            <option value="auto">Auto-detect</option>
+            <option value="auth">SSH / Auth</option>
+            <option value="web">Web (Apache/Nginx)</option>
+          </select>
+        </div>
+
+        <div class="flex items-end">
+          <button id="submit-btn" type="submit"
+            class="w-full bg-ops-cyan hover:bg-cyan-300 text-ops-bg font-display font-bold
+                   rounded-lg py-2.5 text-sm tracking-widest transition-all
+                   flex items-center justify-center gap-2">
+            <span id="btn-text">ANALYZE</span>
+            <svg id="btn-spinner" class="hidden animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Sample data buttons ── -->
+  <div class="bg-ops-card border border-ops-border rounded-xl p-5 mb-8 fade-up d3">
+    <p class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
+      // Quick Demo — No Upload Needed
+    </p>
+    <div class="grid grid-cols-3 gap-3">
+
+      <form action="/use-sample" method="post">
+        <input type="hidden" name="sample" value="auth" />
+        <button type="submit"
+          class="w-full text-left p-4 rounded-lg border border-ops-border
+                 hover:border-ops-cyan/40 hover:bg-ops-cyan/5 transition-all group">
+          <div class="font-display font-bold text-sm tracking-widest text-white mb-1
+                      group-hover:text-ops-cyan transition-colors">SSH AUTH LOG</div>
+          <div class="font-mono text-xs text-ops-muted mb-2">Brute force · Credential stuffing</div>
+          <div class="flex gap-1 flex-wrap">
+            <span class="badge badge-critical">CRITICAL</span>
+            <span class="badge badge-high">HIGH</span>
+            <span class="badge badge-ml">ML</span>
+          </div>
+        </button>
+      </form>
+
+      <form action="/use-sample" method="post">
+        <input type="hidden" name="sample" value="web" />
+        <button type="submit"
+          class="w-full text-left p-4 rounded-lg border border-ops-border
+                 hover:border-ops-cyan/40 hover:bg-ops-cyan/5 transition-all group">
+          <div class="font-display font-bold text-sm tracking-widest text-white mb-1
+                      group-hover:text-ops-cyan transition-colors">WEB ACCESS LOG</div>
+          <div class="font-mono text-xs text-ops-muted mb-2">SQLi · XSS · Traversal · Scanner</div>
+          <div class="flex gap-1 flex-wrap">
+            <span class="badge badge-high">HIGH ×4</span>
+            <span class="badge badge-ml">ML</span>
+          </div>
+        </button>
+      </form>
+
+      <form action="/use-sample" method="post">
+        <input type="hidden" name="sample" value="csv" />
+        <button type="submit"
+          class="w-full text-left p-4 rounded-lg border border-ops-green/30
+                 hover:border-ops-green/60 hover:bg-ops-green/5 transition-all group">
+          <div class="font-display font-bold text-sm tracking-widest text-white mb-1
+                      group-hover:text-ops-green transition-colors">KAGGLE DATASET</div>
+          <div class="font-mono text-xs text-ops-muted mb-2">41,825 events · Ground truth labels</div>
+          <div class="flex gap-1 flex-wrap">
+            <span class="badge badge-critical">CRITICAL ×9</span>
+            <span class="badge" style="background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.3)">REAL DATA</span>
+          </div>
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ── Pipeline steps ── -->
+  <div class="grid grid-cols-4 gap-2 fade-up d4">
+    {% for num, icon, label, sub in [
+      ('01','📂','INGEST',  'SSH · Web logs'),
+      ('02','⚙',  'PARSE',   'Regex extract'),
+      ('03','🔎','DETECT',  'Rules + ML'),
+      ('04','📊','REPORT',  'Ranked threats'),
+    ] %}
+    <div class="bg-ops-card border border-ops-border rounded-lg p-3 text-center">
+      <div class="font-mono text-xs text-ops-border mb-1">{{ num }}</div>
+      <div class="text-lg mb-1">{{ icon }}</div>
+      <div class="font-display font-bold text-xs tracking-widest text-white">{{ label }}</div>
+      <div class="font-mono text-xs text-ops-muted mt-0.5">{{ sub }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<script>
+  // Show selected filename in dropzone
+  document.getElementById('file-input').addEventListener('change', function () {
+    const name = this.files[0]?.name;
+    if (!name) return;
+    document.getElementById('dz-label').textContent = name;
+    document.getElementById('dz-label').className = 'font-mono text-xs text-ops-cyan';
+    document.getElementById('dz-sub').textContent  = 'Ready — click ANALYZE';
+    document.getElementById('dropzone').classList.add('border-ops-cyan/40', 'bg-ops-cyan/5');
+  });
+
+  // Spinner + disabled state on submit
+  document.getElementById('upload-form').addEventListener('submit', function () {
+    document.getElementById('btn-text').textContent = 'SCANNING...';
+    document.getElementById('btn-spinner').classList.remove('hidden');
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.classList.replace('bg-ops-cyan', 'bg-ops-cyan/50');
+  });
+</script>
+{% endblock %}

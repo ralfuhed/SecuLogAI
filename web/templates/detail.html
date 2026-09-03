@@ -1,0 +1,934 @@
+{% extends "base.html" %}
+{% block title %}SecuLog AI — {{ detail.title }}{% endblock %}
+
+{% block nav_extra %}
+<a href="/dashboard"
+   class="font-mono text-xs border border-ops-border text-ops-muted
+          hover:border-ops-cyan/40 hover:text-ops-cyan px-3 py-1.5 rounded-lg transition-all">
+  [← BACK TO DASHBOARD]
+</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ── -->
+<div class="flex flex-wrap items-start justify-between gap-4 mb-8 fade-up d1">
+  <div>
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-1">
+      // Deep Dive &nbsp;&middot;&nbsp;
+      {% if detail.type == 'ip' %}IP Analysis
+      {% elif detail.type == 'hour' %}Hour Window
+      {% else %}Threat Class
+      {% endif %}
+    </div>
+    <h1 class="font-display text-4xl font-bold tracking-widest text-white">
+      {% if detail.type == 'ip' %}
+        IP: <span class="text-ops-cyan">{{ detail.value }}</span>
+      {% elif detail.type == 'hour' %}
+        WINDOW: <span class="text-ops-amber">{{ detail.value }}</span>
+      {% else %}
+        <span class="text-ops-red">{{ detail.value | upper }}</span>
+      {% endif %}
+    </h1>
+    <div class="font-mono text-xs text-ops-muted mt-1">
+      {{ results.filename }} &nbsp;&middot;&nbsp; {{ results.log_type | upper }} log
+    </div>
+  </div>
+
+  <!-- Breadcrumb trail -->
+  <div class="flex items-center gap-2 font-mono text-xs text-ops-muted self-end pb-1">
+    <a href="/" class="hover:text-ops-cyan transition-colors">HOME</a>
+    <span class="text-ops-border">/</span>
+    <a href="/dashboard" class="hover:text-ops-cyan transition-colors">DASHBOARD</a>
+    <span class="text-ops-border">/</span>
+    <span class="text-ops-cyan">DETAIL</span>
+  </div>
+</div>
+
+
+{# ═══════════════════════════════════════════════════════════════════
+   IP DEEP DIVE
+   ═══════════════════════════════════════════════════════════════════ #}
+{% if detail.type == 'ip' %}
+
+<!-- ── IP stat cards ── -->
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+
+  {% set ip_cards = [
+    ('TOTAL EVENTS',  detail.events | length,  'text-ops-text'),
+    ('THREATS',       detail.threats | length,  'text-ops-red'    if detail.threats | length > 0 else 'text-ops-green'),
+    ('FIRST SEEN',    detail.first_seen[:10],   'text-ops-muted'),
+    ('LAST SEEN',     detail.last_seen[:10],    'text-ops-muted'),
+  ] %}
+  {% for label, val, color in ip_cards %}
+  <div class="bracket-card bg-ops-card border border-ops-border rounded-xl p-5 fade-up d{{ loop.index }}">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2">{{ label }}</div>
+    <div class="font-display text-2xl font-bold {{ color }} truncate">{{ val }}</div>
+  </div>
+  {% endfor %}
+
+  <!-- Anomaly score card -->
+  <div class="bracket-card bg-ops-card rounded-xl p-5 fade-up d5
+    {% if detail.anomaly_score >= 0.85 %}border border-ops-red/40
+    {% elif detail.anomaly_score >= 0.65 %}border border-ops-amber/40
+    {% else %}border border-ops-border{% endif %}">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2">ML ANOMALY</div>
+    <div class="font-display text-2xl font-bold
+      {% if detail.anomaly_score >= 0.85 %}text-ops-red
+      {% elif detail.anomaly_score >= 0.65 %}text-ops-amber
+      {% else %}text-ops-green{% endif %}">
+      {{ "%.2f"|format(detail.anomaly_score) }}
+    </div>
+    <div class="font-mono text-xs text-ops-muted mt-1">
+      {% if detail.anomaly_score >= 0.85 %}CRITICAL OUTLIER
+      {% elif detail.anomaly_score >= 0.65 %}HIGH RISK
+      {% elif detail.anomaly_score >= 0.4  %}SUSPICIOUS
+      {% else %}NORMAL{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ── Charts row ── -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
+
+  <!-- Activity timeline -->
+  <div class="lg:col-span-2 bg-ops-card border border-ops-border rounded-xl p-5 fade-up d2">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
+      // Activity Timeline for {{ detail.value }}
+    </div>
+    {% if detail.timeline_labels %}
+      <canvas id="ipTimelineChart" height="110"></canvas>
+    {% else %}
+      <div class="h-28 flex items-center justify-center font-mono text-xs text-ops-muted">[NO TIMELINE DATA]</div>
+    {% endif %}
+  </div>
+
+  <!-- Event type breakdown -->
+  <div class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d3">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
+      // Event Breakdown
+    </div>
+    {% if detail.event_type_labels %}
+      <canvas id="eventTypeChart"></canvas>
+    {% else %}
+      <div class="h-28 flex items-center justify-center font-mono text-xs text-ops-muted">[NO DATA]</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Feature vector (ML input stats) ── -->
+{% if detail.features %}
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 mb-8 fade-up d3">
+  <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
+    // ML Feature Vector &nbsp;&middot;&nbsp;
+    <span class="badge badge-ml">Isolation Forest Inputs</span>
+  </div>
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+    {% for key, val in detail.features.items() %}
+    <div class="bg-ops-bg border border-ops-border rounded-lg p-3">
+      <div class="font-mono text-xs text-ops-muted mb-1">{{ key | replace('_', ' ') | upper }}</div>
+      <div class="font-display text-xl font-bold
+        {% if key == 'failure_rate' and val > 0.7 %}text-ops-red
+        {% elif key == 'failure_rate' and val > 0.4 %}text-ops-amber
+        {% elif key in ['failed_attempts', 'invalid_user_count'] and val > 10 %}text-ops-amber
+        {% else %}text-ops-text{% endif %}">
+        {% if val is float %}{{ "%.2f"|format(val) }}{% else %}{{ val }}{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Threats for this IP ── -->
+{% if detail.threats %}
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 mb-6 fade-up d4">
+  <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-5">
+    // Threats Attributed to {{ detail.value }}
+    <span class="text-ops-border ml-2">({{ detail.threats | length }})</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs font-mono">
+      <thead>
+        <tr class="text-ops-muted border-b border-ops-border text-left">
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Severity</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Threat Type</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Evidence</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Count</th>
+          <th class="pb-2.5    font-normal uppercase tracking-wider">First Detected</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-ops-border/40">
+        {% for t in detail.threats %}
+        <tr class="hover:bg-ops-cyan/5 transition-colors">
+          <td class="py-3 pr-4">
+            <span class="badge badge-{{ t.severity | lower }}">{{ t.severity }}</span>
+          </td>
+          <td class="py-3 pr-4 text-ops-text">{{ t.threat_type }}</td>
+          <td class="py-3 pr-4 text-ops-muted max-w-xs truncate" title="{{ t.evidence }}">
+            {{ t.evidence }}
+          </td>
+          <td class="py-3 pr-4 text-ops-amber font-bold">{{ t.count }}</td>
+          <td class="py-3 text-ops-muted whitespace-nowrap">{{ t.timestamp }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="bg-ops-card border border-ops-green/30 rounded-xl p-5 mb-6 text-center fade-up d4">
+  <div class="font-mono text-xs text-ops-green mb-1">[NO RULE-BASED THREATS]</div>
+  <div class="font-mono text-xs text-ops-muted">This IP triggered no signature rules.</div>
+</div>
+{% endif %}
+
+<!-- ── All events for this IP ── -->
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d5">
+  <div class="flex items-center justify-between mb-5">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
+      // Full Event Log
+      <span class="text-ops-border ml-2">({{ detail.events | length }} events)</span>
+    </div>
+    <input id="ip-search" type="text" placeholder="Filter events..."
+      class="bg-ops-bg border border-ops-border text-ops-text font-mono text-xs
+             rounded-lg px-3 py-1.5 w-44 focus:outline-none focus:border-ops-cyan/50
+             transition-colors placeholder:text-ops-border">
+  </div>
+  <div class="overflow-x-auto max-h-96 overflow-y-auto rounded-lg border border-ops-border">
+    <table class="w-full text-xs font-mono" id="ip-events-table">
+      <thead class="sticky top-0 bg-ops-card border-b border-ops-border">
+        <tr class="text-ops-muted text-left">
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Timestamp</th>
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Event</th>
+          {% if results.log_type == 'auth' %}
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">User</th>
+          {% else %}
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Method</th>
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Path</th>
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Status</th>
+          {% endif %}
+          {% if results.has_ground_truth %}
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Label</th>
+          {% endif %}
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Raw</th>
+        </tr>
+      </thead>
+      <tbody id="ip-events-tbody" class="divide-y divide-ops-border/30">
+        {% for e in detail.events %}
+        <tr class="hover:bg-ops-cyan/5 transition-colors"
+            data-search="{{ (e.event ~ ' ' ~ (e.user or '') ~ ' ' ~ (e.path or '') ~ ' ' ~ e.raw) | lower }}">
+          <td class="py-1.5 px-3 text-ops-muted whitespace-nowrap">{{ e.timestamp }}</td>
+          <td class="py-1.5 px-3">
+            <span class="
+              {% if e.event in ['failed_login','invalid_user'] %}text-ops-red
+              {% elif e.event == 'successful_login' %}text-ops-green
+              {% else %}text-ops-text{% endif %}">
+              {{ e.event }}
+            </span>
+          </td>
+          {% if results.log_type == 'auth' %}
+          <td class="py-1.5 px-3 text-ops-muted">{{ e.user or '' }}</td>
+          {% else %}
+          <td class="py-1.5 px-3 text-ops-cyan">{{ e.method or '' }}</td>
+          <td class="py-1.5 px-3 text-ops-muted max-w-xs truncate" title="{{ e.path or '' }}">
+            {% set p = e.path or '' %}
+            {{ p[:60] }}{% if p | length > 60 %}&hellip;{% endif %}
+          </td>
+          <td class="py-1.5 px-3
+            {% if (e.status or 0)|int >= 500 %}text-ops-red
+            {% elif (e.status or 0)|int >= 400 %}text-ops-amber
+            {% else %}text-ops-green{% endif %}">
+            {{ e.status or '' }}
+          </td>
+          {% endif %}
+          {% if results.has_ground_truth %}
+          <td class="py-1.5 px-3">
+            {% if e.label and e.label != 'normal' %}
+              <span class="badge badge-high">{{ e.label }}</span>
+            {% else %}
+              <span class="text-ops-muted">normal</span>
+            {% endif %}
+          </td>
+          {% endif %}
+          <td class="py-1.5 px-3 text-ops-border max-w-xs truncate" title="{{ e.raw }}">
+            {{ e.raw[:80] }}{% if e.raw | length > 80 %}&hellip;{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+{# ═══════════════════════════════════════════════════════════════════
+   HOUR DRILL-DOWN
+   ═══════════════════════════════════════════════════════════════════ #}
+{% elif detail.type == 'hour' %}
+
+<!-- ── Hour stat cards ── -->
+<div class="grid grid-cols-3 gap-4 mb-8">
+  {% for label, val, color in [
+    ('EVENTS IN WINDOW', detail.events | length, 'text-ops-text'),
+    ('UNIQUE IPs',        detail.unique_ips | length, 'text-ops-cyan'),
+    ('THREATS DETECTED',  detail.threats | length, 'text-ops-red' if detail.threats | length > 0 else 'text-ops-green'),
+  ] %}
+  <div class="bracket-card bg-ops-card border border-ops-border rounded-xl p-5 fade-up d{{ loop.index }}">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2">{{ label }}</div>
+    <div class="font-display text-4xl font-bold {{ color }} counter" data-target="{{ val if val is number else 0 }}">
+      {% if val is number %}0{% else %}{{ val }}{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── Top IPs in this hour ── -->
+{% if detail.top_ips %}
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 mb-8 fade-up d2">
+  <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
+    // Most Active IPs in {{ detail.value }}
+  </div>
+  <canvas id="hourIpChart" height="70"></canvas>
+</div>
+{% endif %}
+
+<!-- ── Active IPs badge cloud ── -->
+{% if detail.unique_ips %}
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 mb-6 fade-up d3">
+  <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
+    // Active IPs <span class="text-ops-border">({{ detail.unique_ips | length }})</span>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% for ip in detail.unique_ips %}
+    <a href="/detail?result_id={{ detail.result_id }}&type=ip&value={{ ip }}"
+       class="font-mono text-xs bg-ops-bg border border-ops-border text-ops-cyan
+              hover:border-ops-cyan/50 hover:bg-ops-cyan/5 rounded-lg px-3 py-1.5
+              transition-all flex items-center gap-1.5">
+      <span class="w-1.5 h-1.5 rounded-full bg-ops-cyan/50"></span>
+      {{ ip }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Threats in this window ── -->
+{% if detail.threats %}
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 mb-6 fade-up d4">
+  <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-5">
+    // Threats Detected in Window
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs font-mono">
+      <thead>
+        <tr class="text-ops-muted border-b border-ops-border text-left">
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Severity</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Threat Type</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Source IP</th>
+          <th class="pb-2.5    font-normal uppercase tracking-wider">Evidence</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-ops-border/40">
+        {% for t in detail.threats %}
+        <tr class="hover:bg-ops-cyan/5 transition-colors">
+          <td class="py-3 pr-4"><span class="badge badge-{{ t.severity | lower }}">{{ t.severity }}</span></td>
+          <td class="py-3 pr-4 text-ops-text">{{ t.threat_type }}</td>
+          <td class="py-3 pr-4">
+            <a href="/detail?result_id={{ detail.result_id }}&type=ip&value={{ t.ip }}"
+               class="text-ops-cyan hover:underline">{{ t.ip }}</a>
+          </td>
+          <td class="py-3 text-ops-muted max-w-xs truncate" title="{{ t.evidence }}">{{ t.evidence }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── All events in this hour ── -->
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d5">
+  <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-5">
+    // All Events in {{ detail.value }}
+    <span class="text-ops-border ml-2">({{ detail.events | length }})</span>
+  </div>
+  <div class="overflow-x-auto max-h-96 overflow-y-auto rounded-lg border border-ops-border">
+    <table class="w-full text-xs font-mono">
+      <thead class="sticky top-0 bg-ops-card border-b border-ops-border">
+        <tr class="text-ops-muted text-left">
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Timestamp</th>
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">IP</th>
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Event</th>
+          <th class="py-2 px-3 font-normal uppercase tracking-wider">Raw</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-ops-border/30">
+        {% for e in detail.events %}
+        <tr class="hover:bg-ops-cyan/5 transition-colors">
+          <td class="py-1.5 px-3 text-ops-muted whitespace-nowrap">{{ e.timestamp }}</td>
+          <td class="py-1.5 px-3">
+            <a href="/detail?result_id={{ detail.result_id }}&type=ip&value={{ e.ip }}"
+               class="text-ops-cyan hover:underline">{{ e.ip }}</a>
+          </td>
+          <td class="py-1.5 px-3
+            {% if e.event in ['failed_login','invalid_user'] %}text-ops-red
+            {% elif e.event == 'successful_login' %}text-ops-green
+            {% else %}text-ops-text{% endif %}">
+            {{ e.event }}
+          </td>
+          <td class="py-1.5 px-3 text-ops-border max-w-xs truncate" title="{{ e.raw }}">
+            {{ e.raw[:80] }}{% if e.raw | length > 80 %}&hellip;{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+{# ═══════════════════════════════════════════════════════════════════
+   THREAT-TYPE DRILL-DOWN
+   ═══════════════════════════════════════════════════════════════════ #}
+{% elif detail.type == 'threat_type' %}
+
+<!-- ── Threat-type stat cards ── -->
+<div class="grid grid-cols-3 gap-4 mb-8">
+  {% for label, val, color in [
+    ('INSTANCES',     detail.threats    | length, 'text-ops-red'),
+    ('IPs AFFECTED',  detail.threat_ips | length, 'text-ops-amber'),
+    ('EVENTS LINKED', detail.events     | length, 'text-ops-text'),
+  ] %}
+  <div class="bracket-card bg-ops-card border border-ops-border rounded-xl p-5 fade-up d{{ loop.index }}">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2">{{ label }}</div>
+    <div class="font-display text-4xl font-bold {{ color }} counter" data-target="{{ val }}">0</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── Severity breakdown chart ── -->
+{% if detail.sev_labels %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
+  <div class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d2">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
+      // Severity Distribution
+    </div>
+    <canvas id="sevChart"></canvas>
+  </div>
+
+  <!-- Affected IPs list -->
+  <div class="lg:col-span-2 bg-ops-card border border-ops-border rounded-xl p-5 fade-up d3">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
+      // Affected IPs — click to investigate
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% for ip in detail.threat_ips %}
+      {% set ip_threats = detail.threats | selectattr('ip','equalto',ip) | list %}
+      {% set worst_sev = ip_threats | map(attribute='severity') | list %}
+      <a href="/detail?result_id={{ detail.result_id }}&type=ip&value={{ ip }}"
+         class="font-mono text-xs bg-ops-bg rounded-lg px-3 py-2 transition-all
+                flex items-center gap-2
+                {% if 'CRITICAL' in worst_sev %}border border-ops-red/40 text-ops-red hover:border-ops-red/70
+                {% elif 'HIGH' in worst_sev %}border border-ops-amber/40 text-ops-amber hover:border-ops-amber/70
+                {% else %}border border-ops-border text-ops-cyan hover:border-ops-cyan/50{% endif %}">
+        <span class="w-1.5 h-1.5 rounded-full
+          {% if 'CRITICAL' in worst_sev %}bg-ops-red
+          {% elif 'HIGH' in worst_sev %}bg-ops-amber
+          {% else %}bg-ops-cyan{% endif %}"></span>
+        {{ ip }}
+        <span class="text-ops-border">→</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── All matching threats ── -->
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 mb-6 fade-up d4">
+  <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-5">
+    // All {{ detail.value }} Instances
+    <span class="text-ops-border ml-2">({{ detail.threats | length }})</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs font-mono">
+      <thead>
+        <tr class="text-ops-muted border-b border-ops-border text-left">
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Severity</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Source IP</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Evidence</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Count</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Detected</th>
+          <th class="pb-2.5    font-normal uppercase tracking-wider">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-ops-border/40">
+        {% for t in detail.threats %}
+        <tr class="hover:bg-ops-cyan/5 transition-colors">
+          <td class="py-3 pr-4"><span class="badge badge-{{ t.severity | lower }}">{{ t.severity }}</span></td>
+          <td class="py-3 pr-4 text-ops-cyan">{{ t.ip }}</td>
+          <td class="py-3 pr-4 text-ops-muted max-w-xs truncate" title="{{ t.evidence }}">{{ t.evidence }}</td>
+          <td class="py-3 pr-4 text-ops-amber font-bold">{{ t.count }}</td>
+          <td class="py-3 pr-4 text-ops-muted whitespace-nowrap">{{ t.timestamp }}</td>
+          <td class="py-3">
+            <a href="/detail?result_id={{ detail.result_id }}&type=ip&value={{ t.ip }}"
+               class="font-mono text-xs border border-ops-border text-ops-muted
+                      hover:border-ops-cyan/50 hover:text-ops-cyan px-2 py-1 rounded transition-all">
+              → IP Dive
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Contributing events ── -->
+{% if detail.events %}
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d5">
+  <button id="raw-toggle" onclick="toggleRaw()" class="w-full flex items-center justify-between group">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
+      // Contributing Events from Affected IPs
+      <span class="text-ops-border ml-2">({{ detail.events | length }})</span>
+    </div>
+    <span id="raw-icon" class="font-mono text-xs text-ops-border group-hover:text-ops-cyan transition-colors">
+      [EXPAND]
+    </span>
+  </button>
+  <div id="raw-panel" class="hidden mt-4">
+    <div class="overflow-x-auto max-h-80 overflow-y-auto rounded-lg border border-ops-border">
+      <table class="w-full text-xs font-mono">
+        <thead class="sticky top-0 bg-ops-card border-b border-ops-border">
+          <tr class="text-ops-muted text-left">
+            <th class="py-2 px-3 font-normal uppercase tracking-wider">Timestamp</th>
+            <th class="py-2 px-3 font-normal uppercase tracking-wider">IP</th>
+            <th class="py-2 px-3 font-normal uppercase tracking-wider">Event</th>
+            <th class="py-2 px-3 font-normal uppercase tracking-wider">Raw</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-ops-border/30">
+          {% for e in detail.events %}
+          <tr class="hover:bg-ops-cyan/5 transition-colors">
+            <td class="py-1.5 px-3 text-ops-muted whitespace-nowrap">{{ e.timestamp }}</td>
+            <td class="py-1.5 px-3">
+              <a href="/detail?result_id={{ detail.result_id }}&type=ip&value={{ e.ip }}"
+                 class="text-ops-cyan hover:underline">{{ e.ip }}</a>
+            </td>
+            <td class="py-1.5 px-3
+              {% if e.event in ['failed_login','invalid_user'] %}text-ops-red
+              {% elif e.event == 'successful_login' %}text-ops-green
+              {% else %}text-ops-text{% endif %}">{{ e.event }}</td>
+            <td class="py-1.5 px-3 text-ops-border max-w-xs truncate" title="{{ e.raw }}">
+              {{ e.raw[:80] }}{% if e.raw | length > 80 %}&hellip;{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ═══════════════════════════════════════════════════════════════════
+   ALL IPs ROSTER
+   ═══════════════════════════════════════════════════════════════════ #}
+{% elif detail.type == 'all_ips' %}
+
+<!-- ── Stat cards ── -->
+<div class="grid grid-cols-3 gap-4 mb-8">
+  {% set total_threatened = detail.ip_rows | selectattr('threats', 'gt', 0) | list | length %}
+  {% set total_clean      = detail.ip_rows | length - total_threatened %}
+  {% for label, val, color in [
+    ('TOTAL IPs',    detail.ip_rows | length, 'text-ops-cyan'),
+    ('WITH THREATS', total_threatened,        'text-ops-red' if total_threatened > 0 else 'text-ops-green'),
+    ('CLEAN',        total_clean,             'text-ops-green'),
+  ] %}
+  <div class="bracket-card bg-ops-card border border-ops-border rounded-xl p-5 fade-up d{{ loop.index }}">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2">{{ label }}</div>
+    <div class="font-display text-4xl font-bold {{ color }} counter" data-target="{{ val }}">0</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── Anomaly score overview chart ── -->
+{% if detail.top15_labels %}
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 mb-8 fade-up d2">
+  <div class="flex items-center justify-between mb-4">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
+      // Top IPs by Anomaly Score &nbsp;&middot;&nbsp;
+      <span class="badge badge-ml">ML — Isolation Forest</span>
+    </div>
+    <div class="font-mono text-xs text-ops-border">Click bar → IP deep dive</div>
+  </div>
+  <canvas id="allIpsChart" height="80"></canvas>
+</div>
+{% endif %}
+
+<!-- ── Full IP roster table ── -->
+<div class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d3">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
+      // IP Roster
+      <span id="ip-roster-count" class="text-ops-border ml-2">({{ detail.ip_rows | length }})</span>
+    </div>
+    <div class="flex gap-2 items-center">
+      <!-- Search -->
+      <input id="ip-roster-search" type="text" placeholder="Search IP..."
+        class="bg-ops-bg border border-ops-border text-ops-text font-mono text-xs
+               rounded-lg px-3 py-1.5 w-40 focus:outline-none focus:border-ops-cyan/50
+               transition-colors placeholder:text-ops-border">
+      <!-- Filter tabs -->
+      <div class="flex gap-1">
+        {% for f in ['ALL', 'CRITICAL', 'HIGH', 'THREATS', 'CLEAN'] %}
+        <button class="ip-filter-btn {% if f == 'ALL' %}active{% endif %}
+                       font-mono text-xs px-2.5 py-1.5 rounded border border-ops-border
+                       text-ops-muted hover:text-ops-text transition-all"
+                data-filter="{{ f }}">
+          {{ f }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs font-mono">
+      <thead>
+        <tr class="text-ops-muted border-b border-ops-border text-left">
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">IP Address</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Risk</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Anomaly Score</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Events</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Threats</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">First Seen</th>
+          <th class="pb-2.5 pr-4 font-normal uppercase tracking-wider">Last Seen</th>
+          <th class="pb-2.5    font-normal uppercase tracking-wider">Action</th>
+        </tr>
+      </thead>
+      <tbody id="ip-roster-tbody" class="divide-y divide-ops-border/40">
+        {% for r in detail.ip_rows %}
+        <tr class="ip-roster-row hover:bg-ops-cyan/5 transition-colors cursor-pointer"
+            data-ip="{{ r.ip }}"
+            data-sev="{{ r.worst_sev }}"
+            data-threatened="{{ 'true' if r.threats > 0 else 'false' }}"
+            onclick="window.location='/detail?result_id={{ detail.result_id }}&type=ip&value={{ r.ip }}'">
+
+          <td class="py-3 pr-4">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full
+                {% if r.worst_sev == 'CRITICAL' %}bg-ops-red
+                {% elif r.worst_sev == 'HIGH'     %}bg-ops-amber
+                {% elif r.threats > 0            %}bg-ops-cyan
+                {% else                          %}bg-ops-border{% endif %}"></span>
+              <span class="text-ops-cyan">{{ r.ip }}</span>
+            </div>
+          </td>
+
+          <td class="py-3 pr-4">
+            {% if r.worst_sev != 'NONE' %}
+              <span class="badge badge-{{ r.worst_sev | lower }}">{{ r.worst_sev }}</span>
+            {% else %}
+              <span class="font-mono text-xs text-ops-green">CLEAN</span>
+            {% endif %}
+          </td>
+
+          <!-- Anomaly score with inline bar -->
+          <td class="py-3 pr-4">
+            <div class="flex items-center gap-2">
+              <div class="w-20 h-1.5 rounded-full bg-ops-border overflow-hidden">
+                <div class="h-full rounded-full
+                  {% if r.score >= 0.85 %}bg-ops-red
+                  {% elif r.score >= 0.65 %}bg-ops-amber
+                  {% else %}bg-ops-cyan{% endif %}"
+                  style="width: {{ (r.score * 100) | int }}%"></div>
+              </div>
+              <span class="
+                {% if r.score >= 0.85 %}text-ops-red
+                {% elif r.score >= 0.65 %}text-ops-amber
+                {% else %}text-ops-muted{% endif %}">
+                {{ "%.2f"|format(r.score) }}
+              </span>
+            </div>
+          </td>
+
+          <td class="py-3 pr-4 text-ops-text">{{ r.events }}</td>
+          <td class="py-3 pr-4 {{ 'text-ops-red font-bold' if r.threats > 0 else 'text-ops-muted' }}">
+            {{ r.threats }}
+          </td>
+          <td class="py-3 pr-4 text-ops-muted">{{ r.first_seen }}</td>
+          <td class="py-3 pr-4 text-ops-muted">{{ r.last_seen }}</td>
+
+          <td class="py-3">
+            <a href="/detail?result_id={{ detail.result_id }}&type=ip&value={{ r.ip }}"
+               onclick="event.stopPropagation()"
+               class="font-mono text-xs border border-ops-border text-ops-muted
+                      hover:border-ops-cyan/50 hover:text-ops-cyan px-2 py-1 rounded
+                      transition-all whitespace-nowrap">
+              → Dive
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div id="ip-no-match" class="hidden text-center py-8 font-mono text-xs text-ops-muted">
+      [NO IPs MATCH CURRENT FILTER]
+    </div>
+  </div>
+</div>
+
+{% endif %}{# end detail.type switch #}
+
+
+<!-- ── Scripts ── -->
+<script>
+  // ── Animated counters ─────────────────────────────────────────────────────
+  document.querySelectorAll('.counter').forEach(el => {
+    const target = parseInt(el.dataset.target, 10) || 0;
+    const dur = 600;
+    const start = performance.now();
+    const tick = now => {
+      const p = Math.min((now - start) / dur, 1);
+      el.textContent = Math.floor(p * target).toLocaleString();
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    setTimeout(() => requestAnimationFrame(tick), 200);
+  });
+
+  // ── Chart defaults ────────────────────────────────────────────────────────
+  Chart.defaults.color       = '#64748b';
+  Chart.defaults.borderColor = '#152238';
+  Chart.defaults.font.family = 'JetBrains Mono';
+  Chart.defaults.font.size   = 10;
+
+  {% if detail.type == 'ip' %}
+
+  // ── IP activity timeline ───────────────────────────────────────────────────
+  {% if detail.timeline_labels %}
+  new Chart(document.getElementById('ipTimelineChart'), {
+    type: 'line',
+    data: {
+      labels: {{ detail.timeline_labels | tojson }},
+      datasets: [{
+        label: 'Events',
+        data:   {{ detail.timeline_values | tojson }},
+        borderColor: '#22d3ee',
+        backgroundColor: 'rgba(34,211,238,0.08)',
+        borderWidth: 1.5,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#22d3ee',
+        fill: true,
+        tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8 }, grid: { color: 'rgba(21,34,56,0.9)' } },
+        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(21,34,56,0.9)' } }
+      }
+    }
+  });
+  {% endif %}
+
+  // ── Event type breakdown bar ───────────────────────────────────────────────
+  {% if detail.event_type_labels %}
+  const evLabels = {{ detail.event_type_labels | tojson }};
+  new Chart(document.getElementById('eventTypeChart'), {
+    type: 'bar',
+    data: {
+      labels: evLabels,
+      datasets: [{
+        data:  {{ detail.event_type_values | tojson }},
+        backgroundColor: evLabels.map(l =>
+          l.includes('failed') || l.includes('invalid') ? 'rgba(244,63,94,0.65)' :
+          l.includes('success') ? 'rgba(74,222,128,0.65)' : 'rgba(34,211,238,0.5)'
+        ),
+        borderRadius: 3,
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: 'rgba(21,34,56,0.9)' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+  {% endif %}
+
+  // ── IP event search filter ─────────────────────────────────────────────────
+  document.getElementById('ip-search')?.addEventListener('input', function () {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#ip-events-tbody tr').forEach(r => {
+      r.style.display = (!q || r.dataset.search.includes(q)) ? '' : 'none';
+    });
+  });
+
+  {% elif detail.type == 'hour' %}
+
+  // ── Top IPs bar chart (hour view) ─────────────────────────────────────────
+  {% if detail.ip_bar_labels %}
+  new Chart(document.getElementById('hourIpChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ detail.ip_bar_labels | tojson }},
+      datasets: [{
+        label: 'Events',
+        data:   {{ detail.ip_bar_values | tojson }},
+        backgroundColor: 'rgba(34,211,238,0.55)',
+        hoverBackgroundColor: 'rgba(34,211,238,0.85)',
+        borderRadius: 3,
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: 'rgba(21,34,56,0.9)' } }
+      },
+      onClick(evt, elements) {
+        if (elements.length > 0) {
+          const ip = {{ detail.ip_bar_labels | tojson }}[elements[0].index];
+          window.location.href = `/detail?result_id={{ detail.result_id }}&type=ip&value=${encodeURIComponent(ip)}`;
+        }
+      }
+    }
+  });
+  {% endif %}
+
+  {% elif detail.type == 'threat_type' %}
+
+  // ── Severity doughnut (threat-type view) ──────────────────────────────────
+  {% if detail.sev_labels %}
+  new Chart(document.getElementById('sevChart'), {
+    type: 'doughnut',
+    data: {
+      labels: {{ detail.sev_labels | tojson }},
+      datasets: [{
+        data: {{ detail.sev_values | tojson }},
+        backgroundColor: {{ detail.sev_labels | tojson }}.map(s =>
+          s === 'CRITICAL' ? 'rgba(244,63,94,0.75)'  :
+          s === 'HIGH'     ? 'rgba(251,191,36,0.75)' :
+          s === 'MEDIUM'   ? 'rgba(34,211,238,0.65)' :
+                             'rgba(100,116,139,0.5)'
+        ),
+        borderWidth: 0,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: { padding: 10, boxWidth: 8 } }
+      }
+    }
+  });
+  {% endif %}
+
+  // ── Expand/collapse raw events ────────────────────────────────────────────
+  function toggleRaw() {
+    const panel = document.getElementById('raw-panel');
+    const icon  = document.getElementById('raw-icon');
+    const isHidden = panel.classList.toggle('hidden');
+    icon.textContent = isHidden ? '[EXPAND]' : '[COLLAPSE]';
+  }
+
+  {% elif detail.type == 'all_ips' %}
+
+  // ── All-IPs anomaly bar chart ─────────────────────────────────────────────
+  {% if detail.top15_labels %}
+  const allIpLabels = {{ detail.top15_labels | tojson }};
+  const allIpSevs   = {{ detail.top15_sevs   | tojson }};
+  new Chart(document.getElementById('allIpsChart'), {
+    type: 'bar',
+    data: {
+      labels: allIpLabels,
+      datasets: [{
+        label: 'Anomaly Score',
+        data:   {{ detail.top15_scores | tojson }},
+        backgroundColor: allIpSevs.map(s =>
+          s === 'CRITICAL' ? 'rgba(244,63,94,0.7)'  :
+          s === 'HIGH'     ? 'rgba(251,191,36,0.7)' :
+                             'rgba(34,211,238,0.5)'
+        ),
+        hoverBackgroundColor: allIpSevs.map(s =>
+          s === 'CRITICAL' ? 'rgba(244,63,94,1)'  :
+          s === 'HIGH'     ? 'rgba(251,191,36,1)' :
+                             'rgba(34,211,238,0.9)'
+        ),
+        borderRadius: 3,
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { footer: () => '🔍 Click to drill down' } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, max: 1.0, grid: { color: 'rgba(21,34,56,0.9)' } }
+      },
+      onClick(evt, elements) {
+        if (elements.length > 0) {
+          const ip = allIpLabels[elements[0].index];
+          window.location.href = `/detail?result_id={{ detail.result_id }}&type=ip&value=${encodeURIComponent(ip)}`;
+        }
+      }
+    }
+  });
+  {% endif %}
+
+  // ── IP roster filter + search ─────────────────────────────────────────────
+  let activeIpFilter = 'ALL';
+
+  function applyIpFilters() {
+    const q    = document.getElementById('ip-roster-search').value.toLowerCase();
+    const rows = document.querySelectorAll('#ip-roster-tbody tr');
+    let   n    = 0;
+    rows.forEach(r => {
+      const ip          = r.dataset.ip.toLowerCase();
+      const sev         = r.dataset.sev;
+      const threatened  = r.dataset.threatened === 'true';
+      const fMatch =
+        activeIpFilter === 'ALL'      ||
+        (activeIpFilter === 'CRITICAL'  && sev === 'CRITICAL') ||
+        (activeIpFilter === 'HIGH'      && sev === 'HIGH')     ||
+        (activeIpFilter === 'THREATS'   && threatened)         ||
+        (activeIpFilter === 'CLEAN'     && !threatened);
+      const sMatch = !q || ip.includes(q);
+      r.style.display = (fMatch && sMatch) ? '' : 'none';
+      if (fMatch && sMatch) n++;
+    });
+    document.getElementById('ip-no-match').style.display = n === 0 ? 'block' : 'none';
+    const lbl = document.getElementById('ip-roster-count');
+    if (lbl) lbl.textContent = `(${n} shown)`;
+  }
+
+  document.querySelectorAll('.ip-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ip-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeIpFilter = btn.dataset.filter;
+      applyIpFilters();
+    });
+  });
+  document.getElementById('ip-roster-search')?.addEventListener('input', applyIpFilters);
+
+  {% endif %}
+</script>
+
+{% endblock %}
