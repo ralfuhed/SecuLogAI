@@ -1,0 +1,1079 @@
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:15:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:15:08.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">agarcia</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:15:16.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">tchen</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:15:24.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">mwilson</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:15:32.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">rpatel</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:15:40.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">kobrien</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:15:48.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">administrator</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:15:56.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">svc_backup</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:16:04.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">helpdesk</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:16:12.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">guest</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:16:20.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:16:28.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">agarcia</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:16:36.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">tchen</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:16:44.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">mwilson</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:16:52.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">rpatel</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:17:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">kobrien</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:17:08.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">administrator</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:17:16.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">svc_backup</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:17:24.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">helpdesk</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:17:32.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">guest</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:17:40.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:17:48.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">agarcia</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:17:56.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">tchen</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:18:04.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">mwilson</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:18:12.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">rpatel</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:18:20.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">kobrien</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:18:28.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">administrator</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:18:36.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">svc_backup</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:18:44.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">helpdesk</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:18:52.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">guest</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:19:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:19:08.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">agarcia</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:19:16.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">tchen</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:19:24.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">mwilson</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:19:32.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">rpatel</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:19:40.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">kobrien</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:19:48.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">administrator</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:19:56.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">svc_backup</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:20:04.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">helpdesk</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:20:12.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">guest</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:20:20.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:20:28.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">agarcia</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:20:36.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">tchen</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:20:44.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">mwilson</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:20:52.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">rpatel</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:21:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">kobrien</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:21:08.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">administrator</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:21:16.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">svc_backup</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:21:24.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">helpdesk</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:21:32.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">guest</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:21:40.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:21:48.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">agarcia</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:21:56.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">tchen</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:22:04.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">mwilson</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:22:12.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">rpatel</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:22:20.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">kobrien</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:22:28.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">administrator</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:22:36.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">svc_backup</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:22:44.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">helpdesk</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:22:52.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">guest</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4740</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:24:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">mwilson</Data>
+    <Data Name="IpAddress">-</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:27:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">svc_backup</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">10</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4672</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:27:03.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">svc_backup</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4720</EventID>
+    <TimeCreated SystemTime="2025-01-10T03:04:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">sysadmin_svc</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="SubjectUserName">svc_backup</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T08:13:36.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">agarcia</Data>
+    <Data Name="IpAddress">10.0.5.34</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T08:13:42.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">10.0.5.21</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T08:19:40.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">tchen</Data>
+    <Data Name="IpAddress">10.0.5.47</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T08:45:19.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">10.0.5.21</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T09:02:23.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">agarcia</Data>
+    <Data Name="IpAddress">10.0.5.34</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T09:11:48.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">agarcia</Data>
+    <Data Name="IpAddress">10.0.5.34</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T09:20:34.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">10.0.5.21</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T09:38:38.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">tchen</Data>
+    <Data Name="IpAddress">10.0.5.47</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T09:58:44.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">10.0.5.21</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>

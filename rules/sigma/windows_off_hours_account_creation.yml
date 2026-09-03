@@ -1,0 +1,38 @@
+title: User Account Created Outside Business Hours
+id: cd3be7ed-5efa-40bb-957b-185430be7c2f
+status: experimental
+description: |
+  Detects Windows Event ID 4720 (a user account was created) occurring outside
+  normal working hours. Account creation is routine administration; account
+  creation at 03:00 is a common persistence step after a compromise, because
+  the new account looks unremarkable the following morning.
+
+  Mirrors detect_off_hours_account_creation() in analyzer/rule_engine.py.
+
+  Note: 4720 logged on a domain controller is domain account creation, which
+  is T1136.002 rather than T1136.001.
+references:
+  - https://attack.mitre.org/techniques/T1136/001/
+author: ralfuhed
+date: 2026/09/03
+logsource:
+  product: windows
+  service: security
+detection:
+  account_created:
+    EventID: 4720
+  business_hours:
+    TimeCreated|re: 'T(0[7-9]|1[0-8]):'
+  condition: account_created and not business_hours
+fields:
+  - TargetUserName
+  - SubjectUserName
+  - Computer
+falsepositives:
+  - Scheduled overnight provisioning or HR onboarding automation
+  - Follow-the-sun IT teams operating across time zones, where the business
+    hours window needs widening before this rule is useful
+level: high
+tags:
+  - attack.persistence
+  - attack.t1136.001

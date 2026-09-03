@@ -98,6 +98,35 @@ ATTACK_TECHNIQUES = {
         'confidence': 'confirmed',
         'note': '',
     },
+    # ── Windows Security Event Log ───────────────────────────────────────────
+    'Off-Hours Account Creation': {
+        # MITRE's own detection guidance for T1136.001 cites Event ID 4720.
+        'technique': 'T1136.001',
+        'technique_name': 'Create Account: Local Account',
+        'tactic': 'Persistence',
+        'confidence': 'confirmed',
+        'note': '4720 logged on a domain controller is domain account creation, '
+                'which would be T1136.002 instead.',
+    },
+    'Unexpected Privilege Assignment': {
+        'technique': 'T1078',
+        'technique_name': 'Valid Accounts',
+        'tactic': 'Privilege Escalation',
+        'confidence': 'confirmed',
+        'note': 'Sub-techniques .002 Domain and .003 Local would be more precise, '
+                'but 4672 alone does not say which.',
+    },
+    'Account Lockout': {
+        # A lockout is the consequence of repeated failed authentication, so
+        # the parent technique is the honest choice — 4740 says an account
+        # locked, not which guessing strategy caused it.
+        'technique': 'T1110',
+        'technique_name': 'Brute Force',
+        'tactic': 'Credential Access',
+        'confidence': 'partial',
+        'note': '4740 records the lockout, not the attempts behind it. Lockouts '
+                'also occur benignly from stale cached credentials.',
+    },
     'ML Anomaly Detected': dict(UNMAPPED),
 }
 

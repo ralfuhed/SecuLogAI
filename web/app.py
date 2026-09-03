@@ -22,7 +22,7 @@ from werkzeug.utils import secure_filename
 # Add parent directory to path so we can import the 'analyzer' package
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analyzer.log_parser        import auto_parse, parse_auth_log, parse_web_log
+from analyzer.log_parser        import auto_parse, parse_auth_log, parse_web_log, parse_windows_log
 from analyzer.feature_extractor import extract_auth_features, extract_web_features
 from analyzer.rule_engine       import run_all_rules
 from analyzer.ml_detector       import detect_anomalies, get_ip_scores
@@ -93,6 +93,8 @@ def run_analysis(filepath: str, log_type_hint: str = 'auto') -> dict:
         events, log_type = parse_auth_log(filepath), 'auth'
     elif log_type_hint == 'web':
         events, log_type = parse_web_log(filepath), 'web'
+    elif log_type_hint == 'windows':
+        events, log_type = parse_windows_log(filepath), 'windows'
     else:
         events, log_type = auto_parse(filepath)
 
@@ -100,7 +102,8 @@ def run_analysis(filepath: str, log_type_hint: str = 'auto') -> dict:
         return {'error': 'No parseable events found in this file.'}
 
     # ── Feature extraction ────────────────────────────────────────────────────
-    features_df = extract_auth_features(events) if log_type == 'auth' else extract_web_features(events)
+    features_df = (extract_auth_features(events) if log_type in ('auth', 'windows')
+                   else extract_web_features(events))
 
     # ── Detection ─────────────────────────────────────────────────────────────
     rule_threats = run_all_rules(events, log_type)

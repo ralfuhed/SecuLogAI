@@ -17,7 +17,7 @@ import os
 from datetime import datetime
 
 # Our own modules
-from analyzer.log_parser       import auto_parse, parse_auth_log, parse_web_log
+from analyzer.log_parser       import auto_parse, parse_auth_log, parse_web_log, parse_windows_log
 from analyzer.feature_extractor import extract_auth_features, extract_web_features
 from analyzer.rule_engine      import run_all_rules
 from analyzer.ml_detector      import detect_anomalies
@@ -130,6 +130,8 @@ def cmd_analyze(args):
         events, log_type = parse_auth_log(filepath), 'auth'
     elif args.type == 'web':
         events, log_type = parse_web_log(filepath), 'web'
+    elif args.type == 'windows':
+        events, log_type = parse_windows_log(filepath), 'windows'
     else:
         events, log_type = auto_parse(filepath)   # auto-detect
     print(f'        -> {len(events):,} events parsed ({log_type} log)')
@@ -140,7 +142,7 @@ def cmd_analyze(args):
 
     # ── Step 2: Feature extraction ────────────────────────────────────────────
     print('  [2/4] Extracting features per IP...')
-    if log_type == 'auth':
+    if log_type in ('auth', 'windows'):
         features_df = extract_auth_features(events)
     else:
         features_df = extract_web_features(events)
@@ -190,7 +192,7 @@ def main():
     # 'analyze' sub-command
     analyze_p = sub.add_parser('analyze', help='Analyze a log file for threats')
     analyze_p.add_argument('logfile', help='Path to the log file')
-    analyze_p.add_argument('--type', choices=['auth', 'web', 'auto'], default='auto',
+    analyze_p.add_argument('--type', choices=['auth', 'web', 'windows', 'auto'], default='auto',
                             help='Log type (default: auto-detect)')
 
     # 'generate' sub-command

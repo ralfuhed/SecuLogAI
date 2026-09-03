@@ -1,0 +1,43 @@
+title: Special Privileges Assigned To Unexpected Account
+id: e1a4cea3-6f1b-43e9-b6ac-79c3b4828dd0
+status: experimental
+description: |
+  Detects Windows Event ID 4672 (special privileges assigned to new logon) for
+  an account that is not on the environment's known-administrator list.
+
+  4672 fires on every administrative logon, so unfiltered it is pure noise.
+  It only becomes signal when filtered against an allowlist, which means this
+  rule CANNOT be deployed as-is — the account list below is a placeholder and
+  must be populated per environment. A rule that alerts on every admin logon
+  gets muted within a day, and a muted rule detects nothing.
+
+  Mirrors detect_unexpected_privilege_assignment() in analyzer/rule_engine.py.
+references:
+  - https://attack.mitre.org/techniques/T1078/
+author: ralfuhed
+date: 2026/09/03
+logsource:
+  product: windows
+  service: security
+detection:
+  privileges_assigned:
+    EventID: 4672
+  known_admins:
+    TargetUserName:
+      - 'Administrator'
+      - 'svc_monitoring'
+  machine_accounts:
+    TargetUserName|endswith: '$'
+  condition: privileges_assigned and not known_admins and not machine_accounts
+fields:
+  - TargetUserName
+  - Computer
+  - IpAddress
+falsepositives:
+  - Any administrator not present in the known_admins list — this list is
+    environment-specific and must be completed before deployment
+  - Service accounts that legitimately hold SeBackupPrivilege or similar
+level: high
+tags:
+  - attack.privilege_escalation
+  - attack.t1078
