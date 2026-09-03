@@ -31,9 +31,15 @@ _AUTH_INVALID = re.compile(
 
 # ── Web log pattern ──────────────────────────────────────────────────────────
 # Example: 1.2.3.4 - - [10/Jan/2025:03:14:22 +0000] "GET /path HTTP/1.1" 200 512 "-" "Mozilla"
+#
+# The path is matched lazily up to the " HTTP/" that closes the request line,
+# NOT as \S+. Attack payloads routinely contain raw spaces and quotes —
+# "?id=1 UNION SELECT ..." or '"><img src=x onerror=alert(1)>' — and a \S+
+# path silently drops exactly those lines, turning the most interesting
+# traffic in the log into a false negative.
 _WEB_ACCESS = re.compile(
     r'(?P<ip>[\d.]+)\s+-\s+-\s+\[(?P<timestamp>[^\]]+)\]\s+'
-    r'"(?P<method>\w+)\s+(?P<path>\S+)\s+HTTP/[^"]+"\s+'
+    r'"(?P<method>\w+)\s+(?P<path>.*?)\s+HTTP/[^"]*"\s+'
     r'(?P<status>\d+)\s+(?P<size>\d+|-)'
     r'(?:\s+"(?P<referer>[^"]*)"\s+"(?P<agent>[^"]*)")?'
 )
