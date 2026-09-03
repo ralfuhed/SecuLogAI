@@ -13,6 +13,7 @@ Severity scale: LOW → MEDIUM → HIGH → CRITICAL
 
 from collections import defaultdict
 from datetime import timedelta
+from urllib.parse import unquote
 import re
 
 from analyzer.attack_mapping import technique_for
@@ -37,36 +38,113 @@ BUSINESS_HOURS_END   = 19     # 19:00
 KNOWN_ADMIN_ACCOUNTS = {'administrator'}
 
 # ── Attack signatures ────────────────────────────────────────────────────────
+#
+# Design rule for everything below: a single punctuation character is never
+# enough to alert on.
+#
+# The first version of these patterns matched a bare apostrophe, a bare
+# semicolon, a bare pipe and a bare double dash. Measured against ordinary
+# traffic, 10 of 15 perfectly normal URLs fired an alert:
+#
+#   /search?q=O'Brien                    apostrophe in a surname
+#   /products?ids=1;2;3                  semicolon-delimited list
+#   /filter?tags=red|blue|green          pipe-delimited filter
+#   /report?range=2024-01-01--2024-12-31 double dash in a date range
+#   /docs/how-to-select-a-plan           the word "select" in a slug
+#
+# A rule that alerts on two thirds of normal traffic gets muted in a day, and
+# a muted rule detects nothing. So each pattern now requires either a
+# multi-token SQL construct, a metacharacter followed by an actual command, or
+# a quote sitting in genuine SQL context.
 
-# SQL Injection: attacker embeds SQL commands in URLs to manipulate the database
-# e.g., /login?user=admin'-- bypasses the password check
+def _decode(path: str) -> str:
+    """
+    Percent-decode twice before matching.
+
+    Attackers encode payloads to slip past naive string matching, and double
+    encoding (%2527 -> %27 -> ') is a standard evasion. Two passes is enough
+    in practice and bounds the work per request.
+    """
+    out = path
+    for _ in range(2):
+        try:
+            decoded = unquote(out)
+        except Exception:
+            break
+        if decoded == out:
+            break
+        out = decoded
+    return out
+
+
+# SQL Injection: requires real SQL grammar, not stray punctuation.
+# e.g. /login?user=admin'-- , /products?id=1 UNION SELECT ...
 _SQLI = re.compile(
-    r"('|--|;|%27|%3B|%2D%2D|"
-    r"\bunion\b|\bselect\b|\binsert\b|\bdelete\b|\bdrop\b|\btruncate\b|"
-    r"\bexec\b|\bexecute\b|\bxp_|\bor\s+1\s*=\s*1|\band\s+1\s*=\s*1|"
-    r"sleep\s*\(|benchmark\s*\(|waitfor\s+delay)",
+    r"("
+    r"\bunion\s+(all\s+)?select\b"                  # UNION SELECT
+    r"|\b(select)\b[\s\S]{0,60}?\bfrom\b"           # SELECT ... FROM
+    r"|\binsert\s+into\b|\bdelete\s+from\b"
+    r"|\bdrop\s+(table|database)\b|\btruncate\s+table\b"
+    r"|\bupdate\b[\s\S]{0,40}?\bset\b"
+    r"|\b(or|and)\b\s*['\"]?[\w.]+['\"]?\s*=\s*['\"]?[\w.]+['\"]?\s*(--|#|/\*|;|$)"
+    r"|['\"]\s*(or|and)\b\s*['\"]?\d"               # ' OR 1  /  ' AND 1
+    r"|['\"]\s*(--|#|/\*)"                          # quote immediately closing a comment
+    r"|['\"]\s*;\s*\w"                              # quote then statement separator
+    r"|\bsleep\s*\(\s*\d|\bbenchmark\s*\(|\bwaitfor\s+delay\b|\bpg_sleep\s*\("
+    r"|\bxp_cmdshell\b|\binformation_schema\b|\bsysobjects\b"
+    r"|\bload_file\s*\(|\binto\s+outfile\b"
+    r")",
     re.IGNORECASE
 )
 
-# Directory Traversal: ../ sequences to escape the web root and read system files
-# e.g., /download?file=../../etc/passwd
+# Directory Traversal: escape sequences aimed at the filesystem.
+# e.g. /download?file=../../etc/passwd
 _TRAVERSAL = re.compile(
-    r"(\.\./|\.\.\\|%2e%2e%2f|%2e%2e/|\.%2e/|%2e\./|/etc/passwd|/proc/self)",
+    r"("
+    r"\.\./|\.\.\\"                                  # ../ or ..\
+    r"|%2e%2e[/\\%]|\.%2e[/\\]|%2e\.[/\\]"           # encoded variants
+    r"|/etc/(passwd|shadow)\b|/proc/self\b"
+    r"|\bboot\.ini\b|\bwin\.ini\b"
+    r"|\\windows\\system32|/windows/system32"
+    r")",
     re.IGNORECASE
 )
 
-# XSS: injects JavaScript into pages to steal cookies from other users
-# e.g., /search?q=<script>alert(document.cookie)</script>
+# XSS: script delivery, not merely the word "alert".
+# e.g. /search?q=<script>alert(document.cookie)</script>
 _XSS = re.compile(
-    r"(<script|%3cscript|javascript:|onerror\s*=|onload\s*=|"
-    r"alert\s*\(|document\.cookie|eval\s*\(|base64_decode)",
+    r"("
+    r"<\s*script\b|<\s*/\s*script\s*>"
+    r"|<\s*(img|svg|iframe|body|video|audio|object|embed)\b[^>]{0,120}?\bon\w+\s*="
+    r"|\bon(error|load|click|mouseover|focus|animationstart)\s*=\s*['\"]?[\w$.(]"
+    r"|javascript:\s*[\w$.(]"
+    r"|\bdocument\s*\.\s*(cookie|location|write)\b"
+    r"|\bwindow\s*\.\s*location\b"
+    r"|\beval\s*\(\s*['\"\w]|\batob\s*\(|\bbase64_decode\s*\("
+    r"|\bfromCharCode\s*\("
+    r")",
     re.IGNORECASE
 )
 
-# Command Injection: passes shell commands through web inputs
-# e.g., /ping?host=8.8.8.8; rm -rf /
+# Command Injection: a shell metacharacter followed by something that is
+# actually a command, or an unambiguous shell construct.
+# e.g. /ping?host=8.8.8.8;cat /etc/passwd
+_SHELL_COMMANDS = (
+    r"(?:cat|ls|dir|rm|del|cp|mv|chmod|chown|wget|curl|nc|ncat|netcat|telnet|"
+    r"bash|sh|zsh|ksh|python[23]?|perl|ruby|php|whoami|id|uname|hostname|"
+    r"ifconfig|ipconfig|netstat|ps|kill|touch|echo|printf|env|export|"
+    r"powershell|cmd|certutil|bitsadmin|nslookup|ping)"
+)
 _CMDI = re.compile(
-    r"(\||;|\$\(|`|&&|/bin/sh|/bin/bash|cmd\.exe|powershell)",
+    r"("
+    rf"[;&|]{{1,2}}\s*{_SHELL_COMMANDS}\b"           # ; cat   |ls   && wget
+    rf"|\|\s*{_SHELL_COMMANDS}\b"                    # piped into a command
+    r"|\$\(\s*\w|`\s*\w+\s*`"                        # $(cmd) or `cmd`
+    r"|\$\{IFS\}"                                    # space-evasion idiom
+    r"|/bin/(ba|z|k)?sh\b|/usr/bin/\w+"
+    r"|\bcmd\.exe\b|\bpowershell(\.exe)?\b"
+    rf"|\bnewline\W|%0a\s*{_SHELL_COMMANDS}\b"       # newline injection
+    r")",
     re.IGNORECASE
 )
 
@@ -152,7 +230,7 @@ def detect_sql_injection(events):
     threats = []
     by_ip   = defaultdict(list)
     for e in events:
-        if e.get('type') == 'web' and _SQLI.search(e.get('path', '')):
+        if e.get('type') == 'web' and _SQLI.search(_decode(e.get('path', ''))):
             by_ip[e['ip']].append(e)
     for ip, hits in by_ip.items():
         sev = 'CRITICAL' if len(hits) >= 10 else 'HIGH'
@@ -167,7 +245,7 @@ def detect_directory_traversal(events):
     threats = []
     by_ip   = defaultdict(list)
     for e in events:
-        if e.get('type') == 'web' and _TRAVERSAL.search(e.get('path', '')):
+        if e.get('type') == 'web' and _TRAVERSAL.search(_decode(e.get('path', ''))):
             by_ip[e['ip']].append(e)
     for ip, hits in by_ip.items():
         threats.append(_threat('Directory Traversal', 'HIGH', ip,
@@ -181,7 +259,7 @@ def detect_xss(events):
     threats = []
     by_ip   = defaultdict(list)
     for e in events:
-        if e.get('type') == 'web' and _XSS.search(e.get('path', '')):
+        if e.get('type') == 'web' and _XSS.search(_decode(e.get('path', ''))):
             by_ip[e['ip']].append(e)
     for ip, hits in by_ip.items():
         threats.append(_threat('XSS Attempt', 'HIGH', ip,
@@ -195,7 +273,7 @@ def detect_command_injection(events):
     threats = []
     by_ip   = defaultdict(list)
     for e in events:
-        if e.get('type') == 'web' and _CMDI.search(e.get('path', '')):
+        if e.get('type') == 'web' and _CMDI.search(_decode(e.get('path', ''))):
             by_ip[e['ip']].append(e)
     for ip, hits in by_ip.items():
         threats.append(_threat('Command Injection Attempt', 'CRITICAL', ip,
