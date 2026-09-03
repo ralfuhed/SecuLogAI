@@ -1,0 +1,4 @@
+10.0.0.1 - - [10/Jan/2025:08:00:01 +0000] "GET /index.html HTTP/1.1" 200 1043 "-" "Mozilla/5.0"
+10.0.0.2 - - [10/Jan/2025:08:00:05 +0000] "POST /login HTTP/1.1" 302 0 "-" "Mozilla/5.0"
+192.168.99.1 - - [10/Jan/2025:08:00:09 +0000] "GET /admin HTTP/1.1" 404 - "-" "Nikto/2.1.6"
+not a log line at all
