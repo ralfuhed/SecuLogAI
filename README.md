@@ -1,6 +1,6 @@
 # SecuLogAI
 
-**A detection engine for SSH, web and Windows Security logs — signature rules
+**A detection engine for SSH, web and Windows Security logs, signature rules
 mapped to MITRE ATT&CK, with unsupervised anomaly detection alongside them.**
 
 <div align="center">
@@ -16,6 +16,23 @@ mapped to MITRE ATT&CK, with unsupervised anomaly detection alongside them.**
 
 ---
 
+## Interface
+
+![SecuLogAI dashboard analysing a Windows Security log](docs/img/dashboard-windows.png)
+
+Every finding carries its ATT&CK technique, and the mapping honesty travels
+with it: `~` marks a partial fit, and sources on the local indicator list are
+badged `IOC`.
+
+![Detected threats table with ATT&CK technique column](docs/img/threats-table.png)
+
+The row above is a single Windows Security log read end to end: a password
+spray from `198.51.100.77`, the lockout it caused, the service account it
+eventually succeeded on, the admin rights that account was then granted, and
+the account created at 03:04 to keep the access.
+
+![SecuLogAI upload page](docs/img/landing.png)
+
 ## Detection Coverage
 
 Ten detections across three log sources. Every one carries its ATT&CK
@@ -23,16 +40,16 @@ technique through the CLI, dashboard and JSON export.
 
 | Detection | Log source | Technique | Severity |
 |---|---|---|---|
-| Brute Force Attack | SSH, Windows | `T1110.001` | MEDIUM–CRITICAL |
+| Brute Force Attack | SSH, Windows | `T1110.001` | MEDIUM to CRITICAL |
 | Credential Stuffing | SSH, Windows | `T1110` | HIGH |
 | Off-Hours Account Creation | Windows | `T1136.001` | HIGH |
 | Unexpected Privilege Assignment | Windows | `T1078` | HIGH |
-| Account Lockout | Windows | `T1110` | MEDIUM–HIGH |
-| SQL Injection | Web | `T1190` | HIGH–CRITICAL |
+| Account Lockout | Windows | `T1110` | MEDIUM to HIGH |
+| SQL Injection | Web | `T1190` | HIGH to CRITICAL |
 | Command Injection | Web | `T1190` | CRITICAL |
 | Directory Traversal | Web | `T1190` | HIGH |
 | Cross-Site Scripting | Web | `T1190` | HIGH |
-| Wordlist / Path Scanning | Web | `T1595.003` | MEDIUM–HIGH |
+| Wordlist / Path Scanning | Web | `T1595.003` | MEDIUM to HIGH |
 
 Alongside the signature rules, an Isolation Forest flags per-IP behavioural
 outliers that no rule anticipated. Those findings are explicitly **not**
@@ -62,7 +79,7 @@ isolated events:
 Spray, lockout, breach, escalation, persistence.
 
 There is also a Flask dashboard for drilling into a result by IP, hour or
-threat type — but the detection logic is the substance here, and it runs
+threat type, but the detection logic is the substance here, and it runs
 identically from the CLI.
 
 ## Design notes
@@ -195,7 +212,7 @@ SecuLogAI/
 └── generate_sample_logs.py    # Synthetic log generator (SSH, web, Windows)
 ```
 
-Sample logs are generated rather than committed — run
+Sample logs are generated rather than committed, run
 `python generate_sample_logs.py` after cloning.
 
 ## Tech Stack
@@ -205,7 +222,7 @@ Sample logs are generated rather than committed — run
 - **Interface:** Flask 3.0+, Jinja2, Tailwind CSS (CDN), Chart.js (CDN)
 - **Testing:** pytest, GitHub Actions on Python 3.11 and 3.12
 - **No external services.** Analysis is entirely local, including threat-intel
-  enrichment — nothing about the logs you analyse leaves the machine.
+  enrichment, nothing about the logs you analyse leaves the machine.
 
 ## Threat Detection Example
 
@@ -243,7 +260,7 @@ $ python cli.py analyze data/sample_auth.log
 
   [HIGH] ML Anomaly Detected
     IP        : 172.16.5.9
-    Evidence  : Anomaly score 0.87 — 23 failed logins; 8 unique usernames; 15.2 attempts/min
+    Evidence  : Anomaly score 0.87, 23 failed logins; 8 unique usernames; 15.2 attempts/min
     First seen: Jan 10 05:33:41
 
   Tip: run  python run_web.py  for the interactive dashboard.
@@ -267,7 +284,7 @@ untrusted log data:
 | Port published to `127.0.0.1` only | The dashboard has no authentication; binding `0.0.0.0` would expose every analysed log to the network |
 | gunicorn, not the Flask dev server | The dev server is single-threaded and explicitly not meant to face anything |
 
-Binding `0.0.0.0` *inside* the container is correct — the container boundary is
+Binding `0.0.0.0` *inside* the container is correct, the container boundary is
 what limits reach there, and compose controls what is actually published.
 
 CI builds the image on every pull request and verifies it serves, runs as
@@ -317,8 +334,7 @@ parsed:
 the existing brute-force and username-spread rules apply to Windows logs
 without modification.
 
-The bundled sample walks a full intrusion chain rather than isolated events —
-password spray from an external host, a resulting lockout, a successful logon
+The bundled sample walks a full intrusion chain rather than isolated events, password spray from an external host, a resulting lockout, a successful logon
 on a service account, admin rights assigned to it, then a new account created
 at 03:00 for persistence. Running it produces the whole story:
 
@@ -347,7 +363,7 @@ alerts constantly, gets muted, and then detects nothing. Same for
 ## MITRE ATT&CK Coverage
 
 Every detection is tagged with its ATT&CK technique, and the tag travels with
-the alert through the CLI, the dashboard and the JSON export — not just the
+the alert through the CLI, the dashboard and the JSON export, not just the
 README. Mappings were checked against attack.mitre.org (Enterprise **v19.2**);
 three of the first-draft guesses were wrong and are corrected here.
 
@@ -412,7 +428,7 @@ The same run leaves an attacker who is *not* on the list at its original
 severity, so the escalation carries information rather than flattening
 everything to CRITICAL.
 
-Indicator file format — one per line, `#` for comments:
+Indicator file format, one per line, `#` for comments:
 
 ```
 198.51.100.99   ssh-brute-source   2026-08-14
@@ -421,7 +437,7 @@ Indicator file format — one per line, `#` for comments:
 **Lookups are offline by design.** No network calls happen during analysis.
 Querying a threat-intel API mid-incident leaks which indicators you are
 investigating to a third party, and breaks entirely on an isolated analysis
-host. A missing indicator file is not an error — enrichment is optional and
+host. A missing indicator file is not an error, enrichment is optional and
 analysis proceeds without it.
 
 The bundled list is illustrative, matching the sample logs so the path is
@@ -447,12 +463,12 @@ has deliberately been left out of scope.
 | Issue | Fix |
 |---|---|
 | Flask `secret_key` was a hardcoded literal in source | Read from `SECULOG_SECRET_KEY`, falling back to a random key generated at startup |
-| `app.run(debug=True)` — Werkzeug's debugger is an interactive Python console on any traceback, i.e. RCE for anyone who can reach the port | Off by default; opt in with `SECULOG_DEBUG=1` |
+| `app.run(debug=True)`, Werkzeug's debugger is an interactive Python console on any traceback, i.e. RCE for anyone who can reach the port | Off by default; opt in with `SECULOG_DEBUG=1` |
 | Uploaded filename used directly in a path, allowing `../../` traversal outside the upload folder | `werkzeug.utils.secure_filename` plus an extension allowlist (`.log`, `.txt`, `.csv`) |
 | No upload size limit | `MAX_CONTENT_LENGTH` capped at 50 MB, with a 413 handler |
 | An unparseable upload raised `KeyError` and returned a 500 with a stack trace | Errors are surfaced on the upload page instead |
 
-Configuration lives in environment variables — see `.env.example`. The server
+Configuration lives in environment variables, see `.env.example`. The server
 binds to `127.0.0.1` by default.
 
 ### Deliberately out of scope
@@ -465,8 +481,7 @@ security theatre.
 The consequence is real, though, so it is stated plainly rather than left for
 someone to discover: **do not bind this to `0.0.0.0` or expose it to a
 network.** Anyone who can reach the port can read every analysed log. If you
-need multi-user access, put an authenticating reverse proxy in front of it —
-don't rely on the app.
+need multi-user access, put an authenticating reverse proxy in front of it, don't rely on the app.
 
 Analysis results are written unencrypted to `data/results/` as JSON. Log data
 is sensitive; treat that directory the way you would treat the logs themselves.
@@ -474,9 +489,9 @@ is sensitive; treat that directory the way you would treat the logs themselves.
 ## Accuracy & Ground Truth
 
 If analyzing a labeled CSV dataset (like `ssh_anomaly_dataset.csv`), the web dashboard displays:
-- **Detection rate** — % of actual attacks found
-- **Ground truth labels** — compare predictions vs. reality
-- **Per-IP accuracy** — see which attack types you're catching
+- **Detection rate**, % of actual attacks found
+- **Ground truth labels**, compare predictions vs. reality
+- **Per-IP accuracy**, see which attack types you're catching
 
 ## Roadmap
 
@@ -490,7 +505,7 @@ Done:
 
 Next:
 
-- [ ] GeoIP enrichment — needs a MaxMind GeoLite2 database; see
+- [ ] GeoIP enrichment, needs a MaxMind GeoLite2 database; see
       [why it is absent rather than stubbed](#geoip-not-implemented)
 - [ ] Sysmon Event ID 1 (process creation) for post-compromise execution
 - [ ] Real-time log tailing with WebSocket updates
@@ -506,7 +521,7 @@ Pull requests welcome! Areas for contribution:
 
 ## License
 
-MIT — See LICENSE file
+MIT, See LICENSE file
 
 ## About
 

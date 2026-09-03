@@ -1,11 +1,11 @@
 """
-generate_sample_logs.py — Creates realistic demo log files in data/
+generate_sample_logs.py: Creates realistic demo log files in data/
 
 Run:  python generate_sample_logs.py
 
 Generates two files:
-  data/sample_auth.log    — SSH login events (normal users + brute-force attack)
-  data/sample_access.log  — Web requests (normal traffic + SQLi, XSS, scanner)
+  data/sample_auth.log, SSH login events (normal users + brute-force attack)
+  data/sample_access.log, Web requests (normal traffic + SQLi, XSS, scanner)
 
 Having built-in demo data means anyone cloning the repo can immediately
 try the tool without needing a real server.

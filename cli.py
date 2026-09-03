@@ -1,5 +1,5 @@
 """
-cli.py — Command-line interface for SecuLog AI.
+cli.py: Command-line interface for SecuLog AI.
 
 Usage:
   python cli.py analyze <logfile> [--type auth|web]
@@ -189,7 +189,7 @@ def cmd_generate(_args):
 def main():
     parser = argparse.ArgumentParser(
         prog='seculog',
-        description='SecuLog AI — AI-powered security log analyzer'
+        description='SecuLog AI, AI-powered security log analyzer'
     )
     sub = parser.add_subparsers(dest='command')
 

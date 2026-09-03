@@ -1,5 +1,5 @@
 """
-run_web.py — Start the SecuLog AI web server.
+run_web.py: Start the SecuLog AI web server.
 
 Run:  python run_web.py
 Then open your browser to:  http://localhost:5000

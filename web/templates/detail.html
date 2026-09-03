@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}SecuLog AI — {{ detail.title }}{% endblock %}
+{% block title %}SecuLog AI, {{ detail.title }}{% endblock %}
 
 {% block nav_extra %}
 <a href="/dashboard"
@@ -420,7 +420,7 @@
   <!-- Affected IPs list -->
   <div class="lg:col-span-2 bg-ops-card border border-ops-border rounded-xl p-5 fade-up d3">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
-      // Affected IPs — click to investigate
+      // Affected IPs, click to investigate
     </div>
     <div class="flex flex-wrap gap-2">
       {% for ip in detail.threat_ips %}
@@ -559,7 +559,7 @@
   <div class="flex items-center justify-between mb-4">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
       // Top IPs by Anomaly Score &nbsp;&middot;&nbsp;
-      <span class="badge badge-ml">ML — Isolation Forest</span>
+      <span class="badge badge-ml">ML, Isolation Forest</span>
     </div>
     <div class="font-mono text-xs text-ops-border">Click bar → IP deep dive</div>
   </div>
