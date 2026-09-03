@@ -1,6 +1,6 @@
 """Security tests for the web interface.
 
-This tool ingests hostile input by design — the whole point is reading logs
+This tool ingests hostile input by design, the whole point is reading logs
 full of attacker-controlled strings. These tests cover the places where that
 input reaches the filesystem or the session.
 """
@@ -46,7 +46,7 @@ class TestUploadHandling:
             os.path.join(app_module.UPLOAD_FOLDER, '..', '..', 'pwned.log')
         )
         # Clear any stale canary first, so a leftover file cannot make this
-        # test fail spuriously — or, worse, a missing one make it pass.
+        # test fail spuriously, or, worse, a missing one make it pass.
         if os.path.exists(canary):
             os.remove(canary)
 
@@ -123,7 +123,7 @@ class TestServerDefaults:
         assert run_web.server_config()['debug'] is True
 
     def test_truthy_looking_values_do_not_enable_debug(self, monkeypatch):
-        """Only '1' enables it — 'true'/'yes' must not turn on an RCE surface."""
+        """Only '1' enables it, 'true'/'yes' must not turn on an RCE surface."""
         for value in ('true', 'True', 'yes', 'on'):
             monkeypatch.setenv('SECULOG_DEBUG', value)
             assert run_web.server_config()['debug'] is False

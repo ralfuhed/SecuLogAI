@@ -1,5 +1,5 @@
 """
-attack_mapping.py — Maps each detection to MITRE ATT&CK.
+attack_mapping.py: Maps each detection to MITRE ATT&CK.
 
 Every mapping here was checked against attack.mitre.org (ATT&CK Enterprise
 v19.2) rather than assumed. Three of the original guesses were wrong and are
@@ -8,8 +8,8 @@ justification is just a plausible-looking string.
 
 Each entry carries a `confidence`:
 
-  confirmed — ATT&CK describes this behaviour directly.
-  partial   — the technique is the closest available fit, but the framework
+  confirmed, ATT&CK describes this behaviour directly.
+  partial, the technique is the closest available fit, but the framework
               does not cleanly cover this detection, or the log cannot prove
               what the technique asserts. The `note` says why.
 
@@ -118,7 +118,7 @@ ATTACK_TECHNIQUES = {
     },
     'Account Lockout': {
         # A lockout is the consequence of repeated failed authentication, so
-        # the parent technique is the honest choice — 4740 says an account
+        # the parent technique is the honest choice, 4740 says an account
         # locked, not which guessing strategy caused it.
         'technique': 'T1110',
         'technique_name': 'Brute Force',

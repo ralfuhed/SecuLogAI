@@ -2,7 +2,7 @@
 
 Enrichment changes severity, so it needs to be exactly as trustworthy as the
 detection itself. These cover the parsing of the indicator file, the
-escalation rules, and — importantly — that analysis still works with no
+escalation rules, and, importantly, that analysis still works with no
 indicator list present at all.
 """
 

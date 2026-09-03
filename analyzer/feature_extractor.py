@@ -1,5 +1,5 @@
 """
-feature_extractor.py — Converts raw log events into numerical per-IP
+feature_extractor.py: Converts raw log events into numerical per-IP
 "feature vectors" that the ML model can consume.
 
 ML models only understand numbers, not sentences. This module counts
@@ -18,10 +18,10 @@ def extract_auth_features(events: list[dict]) -> pd.DataFrame:
     SSH auth logs → per-IP feature table.
 
     Key features (what each column means):
-      failure_rate        — 1.0 = every attempt failed (attacker); ~0 = normal user
-      unique_users        — many usernames from one IP = credential stuffing
-      attempts_per_minute — very high = automated bot, not a human
-      night_attempts      — logins at 1–5 AM are unusual
+      failure_rate, 1.0 = every attempt failed (attacker); ~0 = normal user
+      unique_users, many usernames from one IP = credential stuffing
+      attempts_per_minute, very high = automated bot, not a human
+      night_attempts, logins at 1 to 5 AM are unusual
     """
     if not events:
         return pd.DataFrame()
@@ -50,7 +50,7 @@ def extract_auth_features(events: list[dict]) -> pd.DataFrame:
             d['invalid'] += 1
             d['failed']  += 1   # invalid user = also a failed login
 
-        if ts.hour < 6:         # midnight–6 AM
+        if ts.hour < 6:         # midnight to 6 AM
             d['night'] += 1
 
     rows = []
@@ -90,10 +90,10 @@ def extract_web_features(events: list[dict]) -> pd.DataFrame:
     Web access logs → per-IP feature table.
 
     Key features:
-      error_rate            — high 4xx/5xx rate = probing / attacking
-      unique_paths          — many unique URLs = scanner crawling
-      not_found_count       — many 404s = automated directory brute-force
-      suspicious_path_count — paths containing SQLi, XSS, traversal strings
+      error_rate, high 4xx/5xx rate = probing / attacking
+      unique_paths, many unique URLs = scanner crawling
+      not_found_count, many 404s = automated directory brute-force
+      suspicious_path_count, paths containing SQLi, XSS, traversal strings
     """
     if not events:
         return pd.DataFrame()
@@ -115,8 +115,8 @@ def extract_web_features(events: list[dict]) -> pd.DataFrame:
         d['paths'].add(e.get('path', ''))
 
         if status >= 400:            d['errors']    += 1
-        if status == 404:            d['not_found'] += 1   # "Not Found" — scanner behaviour
-        if status >= 500:            d['srv_errors']+= 1   # "Server Error" — possible exploit
+        if status == 404:            d['not_found'] += 1   # "Not Found", scanner behaviour
+        if status >= 500:            d['srv_errors']+= 1   # "Server Error", possible exploit
         if e.get('method') == 'POST':d['posts']     += 1
         if ts.hour < 6:              d['night']     += 1
         if _SUSPICIOUS.search(e.get('path', '')):

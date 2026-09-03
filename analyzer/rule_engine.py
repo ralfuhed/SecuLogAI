@@ -1,5 +1,5 @@
 """
-rule_engine.py — Signature-based (rule-based) threat detection.
+rule_engine.py: Signature-based (rule-based) threat detection.
 
 Like airport security rules: explicit, transparent conditions.
   "Same IP fails login >5 times in 10 min → Brute Force."
@@ -32,8 +32,7 @@ BUSINESS_HOURS_START = 7      # 07:00
 BUSINESS_HOURS_END   = 19     # 19:00
 
 # Accounts expected to hold admin-equivalent rights. Event 4672 on anything
-# outside this set is flagged. This list is environment-specific by nature —
-# left near-empty on purpose so it fails loud rather than silently trusting
+# outside this set is flagged. This list is environment-specific by nature, # left near-empty on purpose so it fails loud rather than silently trusting
 # names that happen to be in a default. Populate it before real use.
 KNOWN_ADMIN_ACCOUNTS = {'administrator'}
 
@@ -154,7 +153,7 @@ def _threat(threat_type, severity, ip, evidence, timestamp, count=1):
     Build a standardised threat dict, tagged with its ATT&CK technique.
 
     Every rule funnels through here, so a detection cannot ship without a
-    mapping — an unrecognised threat type gets the explicit 'unmapped' entry
+    mapping, an unrecognised threat type gets the explicit 'unmapped' entry
     rather than silently carrying no technique at all.
     """
     mapping = technique_for(threat_type)
@@ -335,7 +334,7 @@ def detect_unexpected_privilege_assignment(events):
 
     4672 fires on every administrative logon, so on its own it is pure noise.
     It becomes signal only when filtered against an environment-specific
-    allowlist — see KNOWN_ADMIN_ACCOUNTS.
+    allowlist, see KNOWN_ADMIN_ACCOUNTS.
     """
     threats = []
     seen = set()

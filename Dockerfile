@@ -20,7 +20,7 @@ USER seculog
 
 EXPOSE 5000
 
-# Binding 0.0.0.0 is required inside a container — the container boundary is
+# Binding 0.0.0.0 is required inside a container, the container boundary is
 # what limits reach, not the bind address. docker-compose publishes the port
 # to 127.0.0.1 only, so this is not exposed to the LAN by default.
 #

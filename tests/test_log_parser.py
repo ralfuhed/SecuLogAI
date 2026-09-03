@@ -112,7 +112,7 @@ class TestPayloadsContainingSpaces:
         assert xss[0]['status'] == 200
 
     def test_spaced_payloads_reach_the_detection_rules(self, fixture_path):
-        """Parsing is only half of it — the rules must actually fire on them."""
+        """Parsing is only half of it, the rules must actually fire on them."""
         from analyzer.rule_engine import run_all_rules
         events = parse_web_log(fixture_path('web_spaced_payloads.log'))
         threats = run_all_rules(events, 'web')

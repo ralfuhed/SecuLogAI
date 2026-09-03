@@ -7,7 +7,7 @@ description: |
 
   4672 fires on every administrative logon, so unfiltered it is pure noise.
   It only becomes signal when filtered against an allowlist, which means this
-  rule CANNOT be deployed as-is — the account list below is a placeholder and
+  rule CANNOT be deployed as-is, the account list below is a placeholder and
   must be populated per environment. A rule that alerts on every admin logon
   gets muted within a day, and a muted rule detects nothing.
 
@@ -34,7 +34,7 @@ fields:
   - Computer
   - IpAddress
 falsepositives:
-  - Any administrator not present in the known_admins list — this list is
+  - Any administrator not present in the known_admins list, this list is
     environment-specific and must be completed before deployment
   - Service accounts that legitimately hold SeBackupPrivilege or similar
 level: high

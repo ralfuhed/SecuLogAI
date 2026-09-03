@@ -1,5 +1,5 @@
 """
-web/app.py — Flask web application for SecuLog AI.
+web/app.py: Flask web application for SecuLog AI.
 
 Routes:
   GET  /              → upload page (index.html)
@@ -29,7 +29,7 @@ from analyzer.rule_engine       import run_all_rules
 from analyzer.ml_detector       import detect_anomalies, get_ip_scores
 from analyzer.enrichment        import enrich_threats
 
-# Uploaded logs are attacker-controlled text by definition — this tool exists to
+# Uploaded logs are attacker-controlled text by definition, this tool exists to
 # read hostile input. Everything below treats the upload path accordingly.
 ALLOWED_EXTENSIONS = {'.log', '.txt', '.csv', '.xml'}
 MAX_UPLOAD_BYTES   = 50 * 1024 * 1024
@@ -404,8 +404,8 @@ def detail():
 
         # First / last seen
         timestamps = sorted(e['timestamp'] for e in ip_evts)
-        first_seen = timestamps[0]  if timestamps else '—'
-        last_seen  = timestamps[-1] if timestamps else '—'
+        first_seen = timestamps[0]  if timestamps else ', '
+        last_seen  = timestamps[-1] if timestamps else ', '
 
         detail_data.update({
             'title':          f'IP Deep Dive: {ip}',
@@ -478,8 +478,8 @@ def detail():
                 'threats':     len(thrts),
                 'worst_sev':   worst_sev,
                 'score':       score,
-                'first_seen':  min(e['timestamp'] for e in evts)[:10] if evts else '—',
-                'last_seen':   max(e['timestamp'] for e in evts)[:10] if evts else '—',
+                'first_seen':  min(e['timestamp'] for e in evts)[:10] if evts else ', ',
+                'last_seen':   max(e['timestamp'] for e in evts)[:10] if evts else ', ',
             })
         # Sort: highest anomaly score first, then most threats
         ip_rows.sort(key=lambda r: (-r['score'], -r['threats']))

@@ -5,7 +5,7 @@
 #
 # These entries correspond to the attack sources in the bundled sample logs so
 # the enrichment path is visible on a fresh clone. Replace them with indicators
-# from your own feeds — an indicator list is only as good as its provenance,
+# from your own feeds, an indicator list is only as good as its provenance,
 # and these are illustrative, not real threat intelligence.
 #
 # All addresses used here are from RFC 5737 / RFC 1918 documentation ranges.

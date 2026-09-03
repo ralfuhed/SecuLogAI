@@ -1,11 +1,11 @@
 """
-log_parser.py — Reads raw log files line-by-line and converts each line
+log_parser.py: Reads raw log files line-by-line and converts each line
 into a structured Python dict so the rest of the program can work with it.
 
 Supports:
-  - SSH auth logs  (/var/log/auth.log)       — track login attempts
-  - Web access logs (Apache/Nginx)           — track HTTP requests
-  - SSH anomaly CSV (ssh_anomaly_dataset.csv) — structured dataset with ground-truth labels
+  - SSH auth logs  (/var/log/auth.log), track login attempts
+  - Web access logs (Apache/Nginx), track HTTP requests
+  - SSH anomaly CSV (ssh_anomaly_dataset.csv), structured dataset with ground-truth labels
 """
 
 import re
@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 
 # ── Auth log patterns ────────────────────────────────────────────────────────
-# (?P<name>...) = named capture group — saves the matched text under that name.
+# (?P<name>...) = named capture group, saves the matched text under that name.
 # Example line: Jan 10 03:14:22 srv sshd[12]: Failed password for root from 1.2.3.4 port 22 ssh2
 
 _AUTH_FAILED = re.compile(
@@ -34,8 +34,7 @@ _AUTH_INVALID = re.compile(
 # Example: 1.2.3.4 - - [10/Jan/2025:03:14:22 +0000] "GET /path HTTP/1.1" 200 512 "-" "Mozilla"
 #
 # The path is matched lazily up to the " HTTP/" that closes the request line,
-# NOT as \S+. Attack payloads routinely contain raw spaces and quotes —
-# "?id=1 UNION SELECT ..." or '"><img src=x onerror=alert(1)>' — and a \S+
+# NOT as \S+. Attack payloads routinely contain raw spaces and quotes, # "?id=1 UNION SELECT ..." or '"><img src=x onerror=alert(1)>', and a \S+
 # path silently drops exactly those lines, turning the most interesting
 # traffic in the log into a false negative.
 _WEB_ACCESS = re.compile(
@@ -135,7 +134,7 @@ def parse_web_log(filepath: str) -> list[dict]:
 # Handles the structured SSH anomaly dataset (ssh_anomaly_dataset.csv).
 # Columns: timestamp, source_ip, username, event_type, status, label, detail
 #
-# The 'label' column is ground truth — 'normal' or an attack category.
+# The 'label' column is ground truth, 'normal' or an attack category.
 # We carry it through as 'label' in each event dict so the dashboard
 # can display it and compute a detection-accuracy metric.
 
@@ -187,7 +186,7 @@ def parse_csv_log(filepath: str) -> list[dict]:
 
 
 # ── Windows Security Event Log parser ─────────────────────────────────────────
-# Reads the XML that `wevtutil qe Security /f:xml` produces — a stream of
+# Reads the XML that `wevtutil qe Security /f:xml` produces, a stream of
 # <Event> elements with no enclosing root, which is why the content is wrapped
 # before parsing.
 #
@@ -231,8 +230,8 @@ def parse_windows_log(filepath: str) -> list[dict]:
     """
     Parse exported Windows Security Event Log XML into event dicts.
 
-    Event dicts use the same shape as the SSH parser — 4625 becomes
-    'failed_login', 4624 becomes 'successful_login' — so the existing brute
+    Event dicts use the same shape as the SSH parser, 4625 becomes
+    'failed_login', 4624 becomes 'successful_login', so the existing brute
     force and username-spread rules apply to Windows logs without change.
     """
     with open(filepath, 'r', errors='ignore', encoding='utf-8') as f:

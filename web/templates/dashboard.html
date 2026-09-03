@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}SecuLog AI — Threat Report{% endblock %}
+{% block title %}SecuLog AI, Threat Report{% endblock %}
 
 {% block nav_extra %}
 <a href="/"
@@ -91,7 +91,7 @@
          data-target="{{ results.critical_count }}">0</div>
   </div>
 
-  <!-- Detection Rate card — only shown when CSV ground truth is available -->
+  <!-- Detection Rate card, only shown when CSV ground truth is available -->
   {% if results.has_ground_truth %}
   <div class="bracket-card bg-ops-card border border-ops-green/30 rounded-xl p-5 fade-up d5
               cursor-pointer group hover:border-ops-green/50 transition-colors"
@@ -152,7 +152,7 @@
   <div class="flex items-center justify-between mb-4">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
       // IP Anomaly Scores &nbsp;&middot;&nbsp;
-      <span class="badge badge-ml">ML — Isolation Forest</span>
+      <span class="badge badge-ml">ML, Isolation Forest</span>
     </div>
     <div class="font-mono text-xs text-ops-border">Click bar → IP deep dive</div>
   </div>
@@ -407,7 +407,7 @@
     }
   };
 
-  // ── Timeline (line) — click point → hour drill-down ──────────────────────
+  // ── Timeline (line), click point → hour drill-down ──────────────────────
   new Chart(document.getElementById('timelineChart'), {
     type: 'line',
     plugins: [clickCursorPlugin],
@@ -452,7 +452,7 @@
     }
   });
 
-  // ── Threat type doughnut — click segment → threat-type drill-down ────────
+  // ── Threat type doughnut, click segment → threat-type drill-down ────────
   if (typeLabels.length > 0) {
     new Chart(document.getElementById('typeChart'), {
       type: 'doughnut',
@@ -485,7 +485,7 @@
     });
   }
 
-  // ── IP anomaly bar chart — click bar → IP drill-down ─────────────────────
+  // ── IP anomaly bar chart, click bar → IP drill-down ─────────────────────
   if (ipChartData.length > 0) {
     new Chart(document.getElementById('ipChart'), {
       type: 'bar',
@@ -592,7 +592,7 @@
         <div class="font-mono text-xs text-ops-purple mb-1 uppercase tracking-wider">ML Detection</div>
         <div class="font-mono text-xs text-ops-muted leading-relaxed">
           Flagged by Isolation Forest. This IP's behaviour deviates statistically
-          from all other IPs in the log — no rule signature required.
+          from all other IPs in the log, no rule signature required.
         </div>
       </div>` : '';
 

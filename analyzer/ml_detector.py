@@ -1,7 +1,7 @@
 """
-ml_detector.py — Unsupervised anomaly detection using Isolation Forest.
+ml_detector.py: Unsupervised anomaly detection using Isolation Forest.
 
-Why unsupervised? We have no labeled "attack" examples — the model learns
+Why unsupervised? We have no labeled "attack" examples, the model learns
 what "normal" looks like from the log itself and flags statistical outliers.
 
 How Isolation Forest works (simple version):
@@ -34,8 +34,8 @@ def _run_isolation_forest(df: pd.DataFrame, feature_cols: list[str],
     """
     Core ML step. Trains Isolation Forest on the feature columns,
     then adds two new columns to the DataFrame:
-      anomaly_score — 0.0 (normal) to 1.0 (very anomalous)
-      is_anomaly    — True if Isolation Forest flagged this IP as an outlier
+      anomaly_score, 0.0 (normal) to 1.0 (very anomalous)
+      is_anomaly, True if Isolation Forest flagged this IP as an outlier
 
     contamination=0.1 means "assume ~10% of IPs are outliers."
     """
@@ -49,7 +49,7 @@ def _run_isolation_forest(df: pd.DataFrame, feature_cols: list[str],
     X = df[available].fillna(0).values   # fill any missing values with 0
 
     # StandardScaler centres each feature around 0 with unit variance,
-    # so a feature with range 0–1000 doesn't dominate one with range 0–1
+    # so a feature with range 0 to 1000 doesn't dominate one with range 0 to 1
     X_scaled = StandardScaler().fit_transform(X)
 
     model = IsolationForest(n_estimators=100, contamination=contamination, random_state=42)
@@ -109,7 +109,7 @@ def detect_anomalies(features_df: pd.DataFrame, log_type: str) -> list[dict]:
             'threat_type': 'ML Anomaly Detected',
             'severity':    sev,
             'ip':          ip,
-            'evidence':    f'Anomaly score {score:.2f} — {evidence}',
+            'evidence':    f'Anomaly score {score:.2f}, {evidence}',
             'timestamp':   datetime.now(),
             'count':       1,
             'source':      'ml',

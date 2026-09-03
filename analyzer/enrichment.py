@@ -1,5 +1,5 @@
 """
-enrichment.py — Adds threat-intelligence context to detections.
+enrichment.py: Adds threat-intelligence context to detections.
 
 A detection says what happened. Enrichment says whether it matters. An alert
 reading "22 failed logons from 203.0.113.4" is a statistic; the same alert
@@ -9,8 +9,7 @@ another tool.
 
 Indicators are read from a local file with no network calls at analysis time.
 Reaching out to a threat-intel API while triaging an incident leaks which
-indicators you are investigating, and fails when the analysis host is isolated
-— both good reasons for the lookup to stay offline.
+indicators you are investigating, and fails when the analysis host is isolated, both good reasons for the lookup to stay offline.
 """
 
 import ipaddress
@@ -34,7 +33,7 @@ def load_iocs(path: str = None) -> dict:
         198.51.100.77   spray-source   2026-08-14
 
     Returns {ip: {'category': str, 'first_seen': str}}. A missing file is not
-    an error — enrichment is optional, and the tool must still analyse logs
+    an error, enrichment is optional, and the tool must still analyse logs
     without an indicator list.
     """
     path = path or DEFAULT_IOC_PATH
