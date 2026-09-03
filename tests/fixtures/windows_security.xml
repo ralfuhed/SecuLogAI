@@ -1,0 +1,76 @@
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2025-01-10T09:14:22.123456789Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">jsmith</Data>
+    <Data Name="IpAddress">10.0.5.21</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="SubjectUserName">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4625</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:15:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">administrator</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="LogonType">3</Data>
+    <Data Name="Status">0xC000006D</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4740</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:24:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">mwilson</Data>
+    <Data Name="IpAddress">-</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4672</EventID>
+    <TimeCreated SystemTime="2025-01-10T02:27:03.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">svc_backup</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4720</EventID>
+    <TimeCreated SystemTime="2025-01-10T03:04:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="TargetUserName">sysadmin_svc</Data>
+    <Data Name="IpAddress">198.51.100.77</Data>
+    <Data Name="SubjectUserName">svc_backup</Data>
+  </EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4104</EventID>
+    <TimeCreated SystemTime="2025-01-10T04:00:00.000000000Z"/>
+    <Computer>DC01.corp.local</Computer>
+  </System>
+  <EventData>
+    <Data Name="ScriptBlockText">Write-Host irrelevant</Data>
+  </EventData>
+</Event>

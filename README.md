@@ -216,6 +216,60 @@ And in `analyzer/ml_detector.py`:
 contamination=0.1  # assume ~10% of IPs are outliers
 ```
 
+## Log Sources
+
+| Source | Format | Parser |
+|---|---|---|
+| Linux SSH auth | syslog (`/var/log/auth.log`) | `parse_auth_log` |
+| Apache / Nginx access | combined log format | `parse_web_log` |
+| **Windows Security** | **XML export (`wevtutil qe Security /f:xml`)** | **`parse_windows_log`** |
+| SSH anomaly dataset | CSV with ground-truth labels | `parse_csv_log` |
+
+### Windows Security Event Log
+
+Most entry-level SOC work happens in Windows and Active Directory environments,
+so this is the log source that matters most for realism. Five Event IDs are
+parsed:
+
+| Event ID | Meaning | Feeds |
+|---|---|---|
+| 4624 | An account was successfully logged on | baseline, post-breach activity |
+| 4625 | An account failed to log on | brute force, password spray |
+| 4672 | Special privileges assigned to new logon | privilege escalation |
+| 4720 | A user account was created | persistence |
+| 4740 | A user account was locked out | spray fallout |
+
+4625 is mapped to the same internal `failed_login` event as an SSH failure, so
+the existing brute-force and username-spread rules apply to Windows logs
+without modification.
+
+The bundled sample walks a full intrusion chain rather than isolated events —
+password spray from an external host, a resulting lockout, a successful logon
+on a service account, admin rights assigned to it, then a new account created
+at 03:00 for persistence. Running it produces the whole story:
+
+```
+$ python cli.py analyze data/sample_security.xml
+
+  [CRITICAL] Brute Force Attack
+    ATT&CK    : T1110.001 Brute Force: Password Guessing (Credential Access)
+    Evidence  : 60 failed logins in 10-min window
+
+  [HIGH] Unexpected Privilege Assignment
+    ATT&CK    : T1078 Valid Accounts (Privilege Escalation)
+    Evidence  : Special privileges assigned to "svc_backup" on DC01.corp.local
+
+  [HIGH] Off-Hours Account Creation
+    ATT&CK    : T1136.001 Create Account: Local Account (Persistence)
+    Evidence  : Account "sysadmin_svc" created at 03:04 by svc_backup
+```
+
+**Tuning required before real use.** `KNOWN_ADMIN_ACCOUNTS` in
+`analyzer/rule_engine.py` is deliberately near-empty. Event 4672 fires on every
+administrative logon, so without an environment-specific allowlist the rule
+alerts constantly, gets muted, and then detects nothing. Same for
+`BUSINESS_HOURS_START` / `BUSINESS_HOURS_END` in a follow-the-sun IT team.
+
 ## MITRE ATT&CK Coverage
 
 Every detection is tagged with its ATT&CK technique, and the tag travels with
@@ -232,6 +286,9 @@ three of the first-draft guesses were wrong and are corrected here.
 | XSS Attempt | `T1190` | Exploit Public-Facing Application | Initial Access | partial |
 | Command Injection Attempt | `T1190` | Exploit Public-Facing Application | Initial Access | partial |
 | Path Scanner Detected | `T1595.003` | Active Scanning: Wordlist Scanning | Reconnaissance | confirmed |
+| Off-Hours Account Creation | `T1136.001` | Create Account: Local Account | Persistence | confirmed |
+| Unexpected Privilege Assignment | `T1078` | Valid Accounts | Privilege Escalation | confirmed |
+| Account Lockout | `T1110` | Brute Force | Credential Access | partial |
 
 ### Why some mappings say "partial"
 

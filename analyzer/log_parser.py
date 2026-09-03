@@ -10,6 +10,7 @@ Supports:
 
 import re
 import csv
+import xml.etree.ElementTree as ET
 from datetime import datetime
 
 # ── Auth log patterns ────────────────────────────────────────────────────────
@@ -185,10 +186,122 @@ def parse_csv_log(filepath: str) -> list[dict]:
     return events
 
 
+# ── Windows Security Event Log parser ─────────────────────────────────────────
+# Reads the XML that `wevtutil qe Security /f:xml` produces — a stream of
+# <Event> elements with no enclosing root, which is why the content is wrapped
+# before parsing.
+#
+# Most entry-level SOC work happens in Windows and Active Directory
+# environments, so these five Event IDs cover far more real ground than SSH:
+#
+#   4624  An account was successfully logged on
+#   4625  An account failed to log on
+#   4672  Special privileges assigned to new logon  (admin-equivalent rights)
+#   4720  A user account was created
+#   4740  A user account was locked out
+
+_WIN_NS = {'e': 'http://schemas.microsoft.com/win/2004/08/events/event'}
+
+WINDOWS_EVENT_IDS = {
+    4624: 'successful_login',
+    4625: 'failed_login',
+    4672: 'special_privileges',
+    4720: 'account_created',
+    4740: 'account_lockout',
+}
+
+# Logon type 3 is network, 10 is RemoteInteractive (RDP). Both are remote and
+# therefore the interesting ones for brute-force analysis.
+WINDOWS_LOGON_TYPES = {
+    2: 'Interactive', 3: 'Network', 4: 'Batch', 5: 'Service',
+    7: 'Unlock', 8: 'NetworkCleartext', 9: 'NewCredentials',
+    10: 'RemoteInteractive', 11: 'CachedInteractive',
+}
+
+
+def _parse_windows_ts(raw: str) -> datetime:
+    """'2025-01-10T03:00:00.000000000Z' -> datetime, ignoring sub-second digits."""
+    try:
+        return datetime.strptime(raw[:19], '%Y-%m-%dT%H:%M:%S')
+    except (ValueError, TypeError):
+        return datetime.now()
+
+
+def parse_windows_log(filepath: str) -> list[dict]:
+    """
+    Parse exported Windows Security Event Log XML into event dicts.
+
+    Event dicts use the same shape as the SSH parser — 4625 becomes
+    'failed_login', 4624 becomes 'successful_login' — so the existing brute
+    force and username-spread rules apply to Windows logs without change.
+    """
+    with open(filepath, 'r', errors='ignore', encoding='utf-8') as f:
+        content = f.read()
+    if not content.strip():
+        return []
+
+    # wevtutil emits a bare stream of <Event> elements with no document root.
+    try:
+        root = ET.fromstring(f'<Events>{content}</Events>')
+    except ET.ParseError:
+        return []
+
+    events = []
+    for node in root.findall('.//e:Event', _WIN_NS):
+        system = node.find('e:System', _WIN_NS)
+        if system is None:
+            continue
+
+        id_node = system.find('e:EventID', _WIN_NS)
+        if id_node is None or not (id_node.text or '').strip().isdigit():
+            continue
+
+        event_id = int(id_node.text.strip())
+        if event_id not in WINDOWS_EVENT_IDS:
+            continue
+
+        time_node = system.find('e:TimeCreated', _WIN_NS)
+        timestamp = _parse_windows_ts(
+            time_node.get('SystemTime', '') if time_node is not None else ''
+        )
+        computer_node = system.find('e:Computer', _WIN_NS)
+        computer = computer_node.text if computer_node is not None else ''
+
+        data = {
+            d.get('Name'): (d.text or '')
+            for d in node.findall('.//e:EventData/e:Data', _WIN_NS)
+        }
+
+        # '-' and '::1' both mean "not a meaningful remote source" in 4625.
+        ip = data.get('IpAddress', '').strip()
+        if ip in ('-', '::1', '127.0.0.1', ''):
+            ip = 'local'
+
+        raw_logon = data.get('LogonType', '').strip()
+        logon_type = int(raw_logon) if raw_logon.isdigit() else None
+
+        events.append({
+            'type':        'windows',
+            'event':       WINDOWS_EVENT_IDS[event_id],
+            'event_id':    event_id,
+            'ip':          ip,
+            'user':        data.get('TargetUserName', '').strip(),
+            'subject_user': data.get('SubjectUserName', '').strip(),
+            'logon_type':  logon_type,
+            'logon_type_name': WINDOWS_LOGON_TYPES.get(logon_type, ''),
+            'computer':    computer,
+            'timestamp':   timestamp,
+            'raw': (f'EventID {event_id} ({WINDOWS_EVENT_IDS[event_id]}) '
+                    f'user={data.get("TargetUserName", "")} src={ip} '
+                    f'host={computer} time={timestamp:%Y-%m-%d %H:%M:%S}'),
+        })
+    return events
+
+
 def auto_parse(filepath: str) -> tuple[list[dict], str]:
     """
     Detect log type and parse accordingly.
-    Returns (events, log_type) where log_type is 'auth' or 'web'.
+    Returns (events, log_type) where log_type is 'auth', 'web' or 'windows'.
     """
     # CSV dataset detected by extension or header line
     if filepath.lower().endswith('.csv'):
@@ -200,6 +313,10 @@ def auto_parse(filepath: str) -> tuple[list[dict], str]:
     # Check for CSV header row inside the file just in case
     if 'source_ip' in sample and 'event_type' in sample:
         return parse_csv_log(filepath), 'auth'
+
+    # Windows Event Log XML carries its schema URL in the opening element
+    if 'schemas.microsoft.com/win/2004/08/events/event' in sample or '<Event' in sample:
+        return parse_windows_log(filepath), 'windows'
 
     if 'sshd[' in sample or 'Failed password' in sample:
         return parse_auth_log(filepath), 'auth'

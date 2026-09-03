@@ -184,12 +184,105 @@ def gen_web_log(path: str):
     print(f'[+] Wrote {len(lines)} lines -> {path}')
 
 
+# ── Windows Security Event Log generation ─────────────────────────────────────
+
+def _win_event(event_id: int, ts: datetime, computer: str, data: dict) -> str:
+    """Format one <Event> element as wevtutil qe Security /f:xml would emit it."""
+    fields = '\n'.join(
+        f'    <Data Name="{k}">{v}</Data>' for k, v in data.items()
+    )
+    return (
+        '<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">\n'
+        '  <System>\n'
+        '    <Provider Name="Microsoft-Windows-Security-Auditing"/>\n'
+        f'    <EventID>{event_id}</EventID>\n'
+        f'    <TimeCreated SystemTime="{ts.strftime("%Y-%m-%dT%H:%M:%S")}.000000000Z"/>\n'
+        f'    <Computer>{computer}</Computer>\n'
+        '  </System>\n'
+        '  <EventData>\n'
+        f'{fields}\n'
+        '  </EventData>\n'
+        '</Event>'
+    )
+
+
+def gen_windows_log(path: str):
+    """
+    Writes a Windows Security Event Log XML export covering a full intrusion
+    sequence, which is closer to what an entry-level SOC analyst actually
+    triages than an SSH log:
+
+      1. Normal morning logons from workstations           (4624)
+      2. A password spray from one external host           (4625 x60)
+      3. The sprayed account locks out                     (4740)
+      4. The attacker succeeds on a different account      (4624)
+      5. Admin rights are assigned to that account         (4672)
+      6. A persistence account is created at 03:00         (4720)
+    """
+    entries = []
+    dc = 'DC01.corp.local'
+
+    # ── 1. Ordinary morning logons ────────────────────────────────────────────
+    staff = [('jsmith', '10.0.5.21'), ('agarcia', '10.0.5.34'), ('tchen', '10.0.5.47')]
+    for user, src in staff:
+        for _ in range(random.randint(2, 4)):
+            ts = datetime(2025, 1, 10, 8, 0, 0) + timedelta(seconds=random.randint(0, 7200))
+            entries.append((ts, _win_event(4624, ts, dc, {
+                'TargetUserName': user, 'IpAddress': src,
+                'LogonType': 3, 'SubjectUserName': '-',
+            })))
+
+    # ── 2. Password spray: one source, many accounts, one password each ───────
+    attacker = '198.51.100.77'
+    sprayed = ['jsmith', 'agarcia', 'tchen', 'mwilson', 'rpatel', 'kobrien',
+               'administrator', 'svc_backup', 'helpdesk', 'guest']
+    spray_start = datetime(2025, 1, 10, 2, 15, 0)
+    for i in range(60):
+        ts = spray_start + timedelta(seconds=i * 8)
+        entries.append((ts, _win_event(4625, ts, dc, {
+            'TargetUserName': sprayed[i % len(sprayed)], 'IpAddress': attacker,
+            'LogonType': 3, 'SubjectUserName': '-', 'Status': '0xC000006D',
+        })))
+
+    # ── 3. Lockout from the spray ─────────────────────────────────────────────
+    lock_ts = spray_start + timedelta(minutes=9)
+    entries.append((lock_ts, _win_event(4740, lock_ts, dc, {
+        'TargetUserName': 'mwilson', 'IpAddress': '-', 'SubjectUserName': '-',
+    })))
+
+    # ── 4-5. Success, then privilege assignment on a non-admin account ────────
+    breach_ts = spray_start + timedelta(minutes=12)
+    entries.append((breach_ts, _win_event(4624, breach_ts, dc, {
+        'TargetUserName': 'svc_backup', 'IpAddress': attacker,
+        'LogonType': 10, 'SubjectUserName': '-',
+    })))
+    priv_ts = breach_ts + timedelta(seconds=3)
+    entries.append((priv_ts, _win_event(4672, priv_ts, dc, {
+        'TargetUserName': 'svc_backup', 'IpAddress': attacker, 'SubjectUserName': '-',
+    })))
+
+    # ── 6. Persistence account created at 03:00 ───────────────────────────────
+    create_ts = datetime(2025, 1, 10, 3, 4, 0)
+    entries.append((create_ts, _win_event(4720, create_ts, dc, {
+        'TargetUserName': 'sysadmin_svc', 'IpAddress': attacker,
+        'SubjectUserName': 'svc_backup',
+    })))
+
+    entries.sort(key=lambda x: x[0])
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(entry for _, entry in entries) + '\n')
+
+    print(f'[+] Wrote {len(entries)} Windows events -> {path}')
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     gen_auth_log('data/sample_auth.log')
     gen_web_log('data/sample_access.log')
+    gen_windows_log('data/sample_security.xml')
     print('\n[+] Sample logs ready. Run:')
     print('      python cli.py analyze data/sample_auth.log')
     print('      python cli.py analyze data/sample_access.log')
+    print('      python cli.py analyze data/sample_security.xml')
     print('      python run_web.py   -> open http://localhost:5000')

@@ -23,6 +23,19 @@ BRUTE_FORCE_WINDOW_MIN = 10   # sliding window size in minutes
 CREDENTIAL_STUFF_USERS = 4    # distinct usernames from one IP = stuffing
 SCAN_404_THRESHOLD     = 20   # 404s from one IP = scanner
 
+# ── Windows tuning ───────────────────────────────────────────────────────────
+# Account creation outside these hours is treated as worth a look. Adjust to
+# match the environment: a 24/7 shop with follow-the-sun IT will want this
+# widened, or the rule will produce noise rather than signal.
+BUSINESS_HOURS_START = 7      # 07:00
+BUSINESS_HOURS_END   = 19     # 19:00
+
+# Accounts expected to hold admin-equivalent rights. Event 4672 on anything
+# outside this set is flagged. This list is environment-specific by nature —
+# left near-empty on purpose so it fails loud rather than silently trusting
+# names that happen to be in a default. Populate it before real use.
+KNOWN_ADMIN_ACCOUNTS = {'administrator'}
+
 # ── Attack signatures ────────────────────────────────────────────────────────
 
 # SQL Injection: attacker embeds SQL commands in URLs to manipulate the database
@@ -211,6 +224,87 @@ def detect_scanner(events):
     return threats
 
 
+# ── Windows rules ────────────────────────────────────────────────────────────
+
+def detect_off_hours_account_creation(events):
+    """
+    Flag accounts created outside business hours (Event ID 4720).
+
+    Creating an account is normal administration; creating one at 03:00 is the
+    classic persistence move after a compromise, because the new account looks
+    ordinary the next morning.
+    """
+    threats = []
+    for e in events:
+        if e.get('event') != 'account_created':
+            continue
+        hour = e['timestamp'].hour
+        if hour < BUSINESS_HOURS_START or hour >= BUSINESS_HOURS_END:
+            threats.append(_threat(
+                'Off-Hours Account Creation', 'HIGH', e.get('ip', 'local'),
+                f'Account "{e.get("user", "?")}" created at '
+                f'{e["timestamp"]:%H:%M} on {e.get("computer", "unknown host")} '
+                f'by {e.get("subject_user") or "unknown"}',
+                e['timestamp']
+            ))
+    return threats
+
+
+def detect_unexpected_privilege_assignment(events):
+    """
+    Flag admin-equivalent rights granted to an account not on the known-admin
+    list (Event ID 4672).
+
+    4672 fires on every administrative logon, so on its own it is pure noise.
+    It becomes signal only when filtered against an environment-specific
+    allowlist — see KNOWN_ADMIN_ACCOUNTS.
+    """
+    threats = []
+    seen = set()
+    for e in events:
+        if e.get('event') != 'special_privileges':
+            continue
+        user = (e.get('user') or '').lower()
+        # Machine accounts end in $ and legitimately hold privileges.
+        if not user or user in KNOWN_ADMIN_ACCOUNTS or user.endswith('$'):
+            continue
+        if user in seen:
+            continue
+        seen.add(user)
+        threats.append(_threat(
+            'Unexpected Privilege Assignment', 'HIGH', e.get('ip', 'local'),
+            f'Special privileges assigned to "{e.get("user")}" on '
+            f'{e.get("computer", "unknown host")}, which is not on the '
+            f'known-admin list',
+            e['timestamp']
+        ))
+    return threats
+
+
+def detect_account_lockouts(events):
+    """
+    Flag account lockouts (Event ID 4740).
+
+    A lockout is often the visible end of a brute-force attempt that the
+    failed-logon threshold missed because it was spread out deliberately.
+    """
+    threats = []
+    by_user = defaultdict(list)
+    for e in events:
+        if e.get('event') == 'account_lockout':
+            by_user[e.get('user', '?')].append(e['timestamp'])
+
+    for user, times in by_user.items():
+        times.sort()
+        sev = 'HIGH' if len(times) > 1 else 'MEDIUM'
+        threats.append(_threat(
+            'Account Lockout', sev, 'local',
+            f'Account "{user}" locked out {len(times)} time(s)',
+            times[0], len(times)
+        ))
+    return threats
+
+
 # ── Master runner ────────────────────────────────────────────────────────────
 
 def run_all_rules(events: list[dict], log_type: str) -> list[dict]:
@@ -219,6 +313,13 @@ def run_all_rules(events: list[dict], log_type: str) -> list[dict]:
     if log_type == 'auth':
         threats += detect_brute_force(events)
         threats += detect_credential_stuffing(events)
+    elif log_type == 'windows':
+        # 4625 maps to 'failed_login', so the auth rules apply unchanged.
+        threats += detect_brute_force(events)
+        threats += detect_credential_stuffing(events)
+        threats += detect_off_hours_account_creation(events)
+        threats += detect_unexpected_privilege_assignment(events)
+        threats += detect_account_lockouts(events)
     elif log_type == 'web':
         threats += detect_sql_injection(events)
         threats += detect_directory_traversal(events)

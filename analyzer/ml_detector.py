@@ -76,7 +76,7 @@ def detect_anomalies(features_df: pd.DataFrame, log_type: str) -> list[dict]:
     if features_df is None or features_df.empty:
         return []
 
-    cols = _AUTH_FEATURES if log_type == 'auth' else _WEB_FEATURES
+    cols = _AUTH_FEATURES if log_type in ('auth', 'windows') else _WEB_FEATURES
     df   = _run_isolation_forest(features_df, cols)
 
     threats = []
@@ -86,7 +86,7 @@ def detect_anomalies(features_df: pd.DataFrame, log_type: str) -> list[dict]:
         sev   = 'CRITICAL' if score >= 0.85 else 'HIGH' if score >= 0.65 else 'MEDIUM'
 
         # Build a plain-English evidence string from the most notable numbers
-        if log_type == 'auth':
+        if log_type in ('auth', 'windows'):
             parts = []
             if row.get('failed_attempts', 0):
                 parts.append(f"{int(row['failed_attempts'])} failed logins")
@@ -131,5 +131,5 @@ def get_ip_scores(features_df: pd.DataFrame, log_type: str) -> pd.DataFrame:
     """
     if features_df is None or features_df.empty:
         return pd.DataFrame()
-    cols = _AUTH_FEATURES if log_type == 'auth' else _WEB_FEATURES
+    cols = _AUTH_FEATURES if log_type in ('auth', 'windows') else _WEB_FEATURES
     return _run_isolation_forest(features_df, cols)
