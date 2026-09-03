@@ -16,6 +16,8 @@ from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler   # rescales features to same range
 from datetime import datetime
 
+from analyzer.attack_mapping import technique_for
+
 # Features fed to the model for each log type
 _AUTH_FEATURES = [
     'total_attempts', 'failed_attempts', 'failure_rate',
@@ -102,6 +104,7 @@ def detect_anomalies(features_df: pd.DataFrame, log_type: str) -> list[dict]:
                 parts.append(f"{int(row['not_found_count'])} 404s")
 
         evidence = '; '.join(parts) if parts else 'Statistical outlier'
+        mapping  = technique_for('ML Anomaly Detected')
         threats.append({
             'threat_type': 'ML Anomaly Detected',
             'severity':    sev,
@@ -110,6 +113,13 @@ def detect_anomalies(features_df: pd.DataFrame, log_type: str) -> list[dict]:
             'timestamp':   datetime.now(),
             'count':       1,
             'source':      'ml',
+            # Deliberately unmapped: an outlier is a statistical property, not
+            # a named adversary behaviour. Inventing a technique here would be
+            # the dishonest kind of coverage.
+            'technique':          mapping['technique'],
+            'technique_name':     mapping['technique_name'],
+            'tactic':             mapping['tactic'],
+            'mapping_confidence': mapping['confidence'],
         })
     return threats
 

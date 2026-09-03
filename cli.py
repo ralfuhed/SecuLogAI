@@ -96,6 +96,11 @@ def print_threats(threats):
 
         print(f"  {colorize(f'[{sev}]', color)} {BOLD}{t['threat_type']}{RESET}")
         print(f"    IP        : {t['ip']}")
+        if t.get('technique'):
+            attck = f"{t['technique']} {t['technique_name']} ({t['tactic']})"
+            if t.get('mapping_confidence') == 'partial':
+                attck += colorize('  [partial fit]', DIM)
+            print(f"    ATT&CK    : {attck}")
         print(f"    Evidence  : {t['evidence']}")
         print(f"    First seen: {ts}")
         if i < len(threats):

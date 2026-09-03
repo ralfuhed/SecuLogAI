@@ -1,0 +1,31 @@
+title: SSH Brute Force Attempt
+id: 5c17021d-a462-46a5-8cc8-44f067b6d191
+status: experimental
+description: |
+  Detects repeated SSH password failures from a single source address within a
+  short window, consistent with automated password guessing against one or more
+  accounts. Mirrors detect_brute_force() in analyzer/rule_engine.py.
+references:
+  - https://attack.mitre.org/techniques/T1110/001/
+author: ralfuhed
+date: 2026/09/03
+logsource:
+  product: linux
+  service: sshd
+detection:
+  failed_password:
+    message|contains:
+      - 'Failed password for'
+      - 'Invalid user'
+  timeframe: 10m
+  condition: failed_password | count() by src_ip >= 5
+fields:
+  - src_ip
+  - user
+falsepositives:
+  - A misconfigured backup or monitoring job retrying stale SSH credentials
+  - A user whose saved key expired, retrying rapidly from one workstation
+level: high
+tags:
+  - attack.credential_access
+  - attack.t1110.001
