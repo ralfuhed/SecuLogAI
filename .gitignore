@@ -9,6 +9,7 @@ venv/
 *.egg-info/
 dist/
 build/
+.pytest_cache/
 
 # IDE
 .vscode/
@@ -17,9 +18,18 @@ build/
 *.swo
 *~
 .DS_Store
+tempCodeRunnerFile.py
 
 # Project specific
 .claude/
-*.log
 .env
-CUsersptrog.sshknown_hosts
+*.log
+# Test fixtures are small, committed on purpose so CI has deterministic input
+!tests/fixtures/*.log
+
+# Generated at runtime: analysis output and user uploads
+data/results/
+data/uploads/
+
+# Stray SSH artifact from a malformed path; the U+F03A lookalike colon is deliberate
+C?Usersptrog.ssh*
