@@ -21,6 +21,7 @@ from analyzer.log_parser       import auto_parse, parse_auth_log, parse_web_log,
 from analyzer.feature_extractor import extract_auth_features, extract_web_features
 from analyzer.rule_engine      import run_all_rules
 from analyzer.ml_detector      import detect_anomalies
+from analyzer.enrichment       import enrich_threats
 
 # ── Terminal colour codes (ANSI escape sequences) ─────────────────────────────
 # These make the terminal output colour-coded without any extra library.
@@ -101,6 +102,9 @@ def print_threats(threats):
             if t.get('mapping_confidence') == 'partial':
                 attck += colorize('  [partial fit]', DIM)
             print(f"    ATT&CK    : {attck}")
+        if t.get('ioc_match'):
+            print(f"    {colorize('THREAT INTEL', RED)}: source listed as "
+                  f"{t['ioc_match']['category']}")
         print(f"    Evidence  : {t['evidence']}")
         print(f"    First seen: {ts}")
         if i < len(threats):
@@ -161,7 +165,7 @@ def cmd_analyze(args):
     # ── Merge results (de-duplicate IPs already caught by rules) ─────────────
     rule_ips   = {t['ip'] for t in rule_threats}
     new_ml     = [t for t in ml_threats if t['ip'] not in rule_ips]
-    all_threats = rule_threats + new_ml
+    all_threats = enrich_threats(rule_threats + new_ml)
 
     # ── Output ────────────────────────────────────────────────────────────────
     print()
