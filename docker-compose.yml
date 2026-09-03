@@ -1,0 +1,22 @@
+services:
+  seculog:
+    build: .
+    image: seculogai:latest
+    ports:
+      # Published to localhost only. The dashboard has no authentication, so
+      # binding this to 0.0.0.0 would expose every analysed log to the network.
+      - "127.0.0.1:5000:5000"
+    environment:
+      # Unset means a fresh random key per start. Set it to keep sessions
+      # across restarts; see .env.example.
+      SECULOG_SECRET_KEY: ${SECULOG_SECRET_KEY:-}
+      SECULOG_LOG_LEVEL: ${SECULOG_LOG_LEVEL:-INFO}
+    volumes:
+      # Analysis output survives container restarts.
+      - ./data/results:/app/data/results
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/data/uploads
+    security_opt:
+      - no-new-privileges:true
