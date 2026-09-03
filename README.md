@@ -319,6 +319,49 @@ logic is portable to a real SIEM rather than locked inside this codebase. The
 Python engine stays authoritative; a test asserts the two never drift to
 different technique IDs.
 
+## Threat Intelligence Enrichment
+
+A detection says what happened; enrichment says whether it matters. Detections
+whose source IP appears in `data/ioc_list.txt` are annotated with the indicator
+category and promoted one severity tier:
+
+```
+  [CRITICAL] Brute Force Attack
+    IP          : 198.51.100.99
+    ATT&CK      : T1110.001 Brute Force: Password Guessing (Credential Access)
+    THREAT INTEL: source listed as ssh-brute-source
+    Evidence    : 150 failed logins in 10-min window | Source on indicator
+                  list as ssh-brute-source, first seen 2026-08-14
+```
+
+The same run leaves an attacker who is *not* on the list at its original
+severity, so the escalation carries information rather than flattening
+everything to CRITICAL.
+
+Indicator file format — one per line, `#` for comments:
+
+```
+198.51.100.99   ssh-brute-source   2026-08-14
+```
+
+**Lookups are offline by design.** No network calls happen during analysis.
+Querying a threat-intel API mid-incident leaks which indicators you are
+investigating to a third party, and breaks entirely on an isolated analysis
+host. A missing indicator file is not an error — enrichment is optional and
+analysis proceeds without it.
+
+The bundled list is illustrative, matching the sample logs so the path is
+visible on a fresh clone. It is not real threat intelligence; replace it with
+indicators from your own feeds.
+
+### GeoIP: not implemented
+
+Geolocation would slot in at the same point in the pipeline as the indicator
+lookup, in `analyzer/enrichment.py`. It is deliberately absent rather than
+stubbed: doing it properly needs a MaxMind GeoLite2 database, which requires
+an account and a license key, and shipping a fake lookup that returns
+plausible-looking countries would be worse than shipping nothing.
+
 ## Security Hardening Notes
 
 A tool that reads hostile input should be honest about its own attack surface.

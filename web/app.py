@@ -26,6 +26,7 @@ from analyzer.log_parser        import auto_parse, parse_auth_log, parse_web_log
 from analyzer.feature_extractor import extract_auth_features, extract_web_features
 from analyzer.rule_engine       import run_all_rules
 from analyzer.ml_detector       import detect_anomalies, get_ip_scores
+from analyzer.enrichment        import enrich_threats
 
 # Uploaded logs are attacker-controlled text by definition — this tool exists to
 # read hostile input. Everything below treats the upload path accordingly.
@@ -110,7 +111,9 @@ def run_analysis(filepath: str, log_type_hint: str = 'auto') -> dict:
     ml_threats   = detect_anomalies(features_df, log_type)
 
     rule_ips    = {t['ip'] for t in rule_threats}
-    all_threats = rule_threats + [t for t in ml_threats if t['ip'] not in rule_ips]
+    all_threats = enrich_threats(
+        rule_threats + [t for t in ml_threats if t['ip'] not in rule_ips]
+    )
 
     scores_df = get_ip_scores(features_df, log_type)
 
