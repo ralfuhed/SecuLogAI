@@ -183,14 +183,26 @@ def detect_brute_force(events):
     window = timedelta(minutes=BRUTE_FORCE_WINDOW_MIN)
     for ip, times in by_ip.items():
         times.sort()
+
+        # Two pointers rather than re-scanning the tail for every start.
+        # The previous version built a fresh list per element, which is
+        # quadratic whenever no alert fires and so never breaks early: 20,000
+        # spread-out failures from one address took 18.5s. Because `times` is
+        # sorted, the window end only ever moves forward, so `end` advances
+        # once across the whole list.
+        end = 0
         for i, start in enumerate(times):
-            burst = [t for t in times[i:] if t - start <= window]
-            if len(burst) >= BRUTE_FORCE_THRESHOLD:
-                sev = 'CRITICAL' if len(burst) >= 50 else 'HIGH' if len(burst) >= 20 else 'MEDIUM'
+            if end < i:
+                end = i
+            while end < len(times) and times[end] - start <= window:
+                end += 1
+            burst = end - i
+            if burst >= BRUTE_FORCE_THRESHOLD:
+                sev = 'CRITICAL' if burst >= 50 else 'HIGH' if burst >= 20 else 'MEDIUM'
                 threats.append(_threat(
                     'Brute Force Attack', sev, ip,
-                    f'{len(burst)} failed logins in {BRUTE_FORCE_WINDOW_MIN}-min window',
-                    burst[0], len(burst)
+                    f'{burst} failed logins in {BRUTE_FORCE_WINDOW_MIN}-min window',
+                    times[i], burst
                 ))
                 break   # one alert per IP
     return threats

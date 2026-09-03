@@ -176,3 +176,43 @@ class TestRunAllRules:
     def test_empty_input_is_safe(self):
         assert run_all_rules([], 'auth') == []
         assert run_all_rules([], 'web') == []
+
+
+class TestBruteForceScales:
+    """
+    The sliding window originally rebuilt a list for every element, which is
+    quadratic whenever no alert fires and so never breaks early. Twenty
+    thousand spread-out failures from one address took 18.5 seconds; a real
+    auth log can carry far more than that from a single scanning source.
+
+    The bound below is deliberately loose so it does not flake on a slow CI
+    runner, while still failing loudly if the quadratic behaviour returns.
+    """
+
+    def _spread(self, n):
+        base = datetime(2025, 1, 10, 3, 0, 0)
+        return [
+            {'type': 'auth', 'event': 'failed_login', 'ip': '1.2.3.4',
+             'user': 'root', 'timestamp': base + timedelta(minutes=i * 5), 'raw': ''}
+            for i in range(n)
+        ]
+
+    def test_large_input_completes_quickly(self):
+        import time
+        events = self._spread(20000)
+        started = time.perf_counter()
+        threats = detect_brute_force(events)
+        elapsed = time.perf_counter() - started
+        assert threats == []          # spread too thin to alert
+        assert elapsed < 5.0, f'took {elapsed:.1f}s; quadratic scan may be back'
+
+    def test_still_detects_after_the_rewrite(self, auth_events):
+        """The faster implementation must agree with the old one."""
+        threats = detect_brute_force(auth_events(count=60, spacing_seconds=1))
+        assert len(threats) == 1
+        assert threats[0]['count'] == 60
+        assert threats[0]['severity'] == 'CRITICAL'
+
+    def test_window_boundary_unchanged(self, auth_events):
+        assert detect_brute_force(auth_events(count=5, spacing_seconds=10))
+        assert detect_brute_force(auth_events(count=5, spacing_seconds=200)) == []

@@ -149,3 +149,47 @@ class TestAutoDetection:
         assert len(events) == 1
         assert events[0]['label'] == 'brute_force'
         assert events[0]['event'] == 'failed_login'
+
+
+class TestIPv6Sources:
+    """
+    Both parsers matched IPv4 only, so any event from an IPv6 source was
+    dropped without a word. Same false-negative class as the spaced-payload
+    bug: the parser reports success while discarding events.
+    """
+
+    def test_parses_ipv6_web_request(self, tmp_path):
+        log = tmp_path / 'v6.log'
+        log.write_text(
+            '2001:db8::1 - - [10/Jan/2025:08:00:01 +0000] '
+            '"GET /index.html HTTP/1.1" 200 1043 "-" "Mozilla/5.0"\n'
+        )
+        events = parse_web_log(str(log))
+        assert len(events) == 1
+        assert events[0]['ip'] == '2001:db8::1'
+
+    def test_parses_ipv6_auth_failure(self, tmp_path):
+        log = tmp_path / 'v6auth.log'
+        log.write_text(
+            'Jan 10 03:14:22 srv sshd[12]: Failed password for root '
+            'from 2001:db8::1 port 22 ssh2\n'
+        )
+        events = parse_auth_log(str(log))
+        assert len(events) == 1
+        assert events[0]['ip'] == '2001:db8::1'
+        assert events[0]['event'] == 'failed_login'
+
+    def test_ipv4_still_parses(self, fixture_path):
+        events = parse_web_log(fixture_path('web_sample.log'))
+        assert events[0]['ip'] == '10.0.0.1'
+
+    def test_ipv6_attacker_reaches_the_rules(self, tmp_path):
+        from analyzer.rule_engine import run_all_rules
+        log = tmp_path / 'v6brute.log'
+        log.write_text('\n'.join(
+            f'Jan 10 03:{m:02d}:00 srv sshd[12]: Failed password for root '
+            f'from 2001:db8::99 port 22 ssh2' for m in range(6)
+        ))
+        events = parse_auth_log(str(log))
+        threats = run_all_rules(events, 'auth')
+        assert any(t['ip'] == '2001:db8::99' for t in threats)
