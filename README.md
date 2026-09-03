@@ -1,40 +1,83 @@
 # SecuLogAI
 
-**Security threat detection in SSH and web logs using rule-based signatures and unsupervised machine learning anomaly detection.**
+**A detection engine for SSH, web and Windows Security logs — signature rules
+mapped to MITRE ATT&CK, with unsupervised anomaly detection alongside them.**
 
 <div align="center">
 
+[![CI](https://github.com/ralfuhed/SecuLogAI/actions/workflows/ci.yml/badge.svg)](https://github.com/ralfuhed/SecuLogAI/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Flask](https://img.shields.io/badge/Flask-3.0+-green.svg)](https://flask.palletsprojects.com/)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-orange.svg)](https://scikit-learn.org/)
+[![ATT&CK](https://img.shields.io/badge/MITRE%20ATT%26CK-v19.2-red.svg)](https://attack.mitre.org/)
 [![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
 
-[Features](#features) • [Quick Start](#quick-start) • [How It Works](#how-it-works) • [Tech Stack](#tech-stack)
+[Detection Coverage](#detection-coverage) • [Log Sources](#log-sources) • [ATT&CK Mapping](#mitre-attck-coverage) • [Quick Start](#quick-start)
 
 </div>
 
 ---
 
-## Overview
+## Detection Coverage
 
-SecuLogAI is an end-to-end security log analyzer that detects threats using two complementary approaches:
+Ten detections across three log sources. Every one carries its ATT&CK
+technique through the CLI, dashboard and JSON export.
 
-1. **Signature-based rules** — explicit attack patterns (brute force, SQL injection, XSS, etc.)
-2. **Unsupervised ML anomaly detection** — statistical outliers using Isolation Forest
+| Detection | Log source | Technique | Severity |
+|---|---|---|---|
+| Brute Force Attack | SSH, Windows | `T1110.001` | MEDIUM–CRITICAL |
+| Credential Stuffing | SSH, Windows | `T1110` | HIGH |
+| Off-Hours Account Creation | Windows | `T1136.001` | HIGH |
+| Unexpected Privilege Assignment | Windows | `T1078` | HIGH |
+| Account Lockout | Windows | `T1110` | MEDIUM–HIGH |
+| SQL Injection | Web | `T1190` | HIGH–CRITICAL |
+| Command Injection | Web | `T1190` | CRITICAL |
+| Directory Traversal | Web | `T1190` | HIGH |
+| Cross-Site Scripting | Web | `T1190` | HIGH |
+| Wordlist / Path Scanning | Web | `T1595.003` | MEDIUM–HIGH |
 
-No labeled training data needed. Zero external dependencies. Works with SSH auth logs, Apache/Nginx access logs, and structured CSV datasets.
+Alongside the signature rules, an Isolation Forest flags per-IP behavioural
+outliers that no rule anticipated. Those findings are explicitly **not**
+ATT&CK-mapped, because a statistical outlier is not a named adversary
+behaviour.
 
-## Features
+Detections are enriched against a local indicator list, and Sigma-format
+equivalents of the core rules live in `rules/sigma/` so the logic is portable
+to a real SIEM.
 
-| Feature | Benefit |
-|---------|---------|
-| 🔍 **Dual Detection** | Rule-based signatures + ML anomaly detection |
-| ⚡ **Zero Training Data** | Unsupervised learning — detects outliers in your own logs |
-| 🖥️ **Dual Interface** | CLI for quick analysis + interactive web dashboard |
-| 📊 **Rich Visualizations** | Timeline charts, threat tables, IP anomaly scores |
-| 🛡️ **8+ Attack Types** | Brute force, credential stuffing, SQLi, XSS, traversal, command injection, scanners, + anomalies |
-| 📝 **Multiple Log Formats** | SSH/auth logs, Apache/Nginx, CSV datasets with ground-truth labels |
-| 🎯 **Production-Ready** | JSON results export, ground-truth accuracy metrics, configurable thresholds |
+## What it is
+
+A local analysis tool. You point it at a log file, it reconstructs what
+happened, and it tells you which technique each finding corresponds to.
+
+Given a Windows Security log, it reports the sequence rather than a pile of
+isolated events:
+
+```
+[CRITICAL] Brute Force Attack             T1110.001   60 failed logons in 10-min window
+[HIGH]     Credential Stuffing            T1110       10 distinct usernames tried
+[HIGH]     Unexpected Privilege Assignment T1078      privileges -> "svc_backup" on DC01
+[HIGH]     Off-Hours Account Creation     T1136.001   "sysadmin_svc" created 03:04
+[MEDIUM]   Account Lockout                T1110       "mwilson" locked out
+```
+
+Spray, lockout, breach, escalation, persistence.
+
+There is also a Flask dashboard for drilling into a result by IP, hour or
+threat type — but the detection logic is the substance here, and it runs
+identically from the CLI.
+
+## Design notes
+
+Three things this project takes a position on:
+
+- **A rule is only half-finished until you know it stays quiet.** The test
+  suite asserts benign traffic produces zero alerts, and every threshold rule
+  is tested on both sides of its boundary.
+- **Weak ATT&CK mappings are labelled `partial` with a reason.** Four of the
+  ten are honest approximations, and the tool says so rather than presenting
+  ten confident IDs. See [why](#why-some-mappings-say-partial).
+- **The tool's own attack surface is documented**, including what has
+  deliberately been left unhardened and why. See
+  [Security Hardening Notes](#security-hardening-notes).
 
 ## Quick Start
 
@@ -132,30 +175,37 @@ Combines rule-based and ML threats, de-duplicates IPs, outputs severity-ranked r
 ```
 SecuLogAI/
 ├── analyzer/
-│   ├── log_parser.py          # Regex parsers for auth, web, CSV logs
-│   ├── feature_extractor.py   # Converts events → ML feature vectors
-│   ├── rule_engine.py         # Signature-based threat detection
+│   ├── log_parser.py          # Parsers: SSH auth, web access, Windows XML, CSV
+│   ├── feature_extractor.py   # Events -> per-IP behavioural feature vectors
+│   ├── rule_engine.py         # Signature detection + tunable thresholds
+│   ├── attack_mapping.py      # MITRE ATT&CK technique mapping, with confidence
+│   ├── enrichment.py          # Offline threat-intel annotation
 │   └── ml_detector.py         # Isolation Forest anomaly detection
+├── rules/sigma/               # Sigma-format equivalents of the core rules
+├── tests/                     # 150 tests: parsers, rules, security, pipeline
 ├── web/
 │   ├── app.py                 # Flask routes & analysis pipeline
-│   └── templates/             # Jinja2 HTML + Tailwind CSS + Chart.js
+│   └── templates/             # Jinja2 + Tailwind + Chart.js
 ├── data/
-│   ├── sample_auth.log        # SSH log sample with attacks
-│   ├── sample_access.log      # Apache/Nginx log sample with attacks
-│   ├── ssh_anomaly_dataset.csv # Labeled dataset (ground truth)
-│   └── results/               # Saved analysis JSON files
+│   ├── ioc_list.txt           # Local indicator list for enrichment
+│   └── ssh_anomaly_dataset.csv # Labeled dataset (ground truth)
+├── .github/workflows/ci.yml   # Tests on Python 3.11 and 3.12
 ├── cli.py                     # Command-line interface
-├── run_web.py                 # Flask development server entry point
-├── generate_sample_logs.py    # Synthetic log generator
-└── requirements.txt
+├── run_web.py                 # Flask server entry point
+└── generate_sample_logs.py    # Synthetic log generator (SSH, web, Windows)
 ```
+
+Sample logs are generated rather than committed — run
+`python generate_sample_logs.py` after cloning.
 
 ## Tech Stack
 
-- **Backend:** Python 3.11+, Flask 3.0+
+- **Detection:** Python 3.11+, standard library regex and `xml.etree` for parsing
 - **ML:** scikit-learn (Isolation Forest), pandas, numpy
-- **Frontend:** Jinja2 templates, Tailwind CSS (CDN), Chart.js (CDN)
-- **No external services** — runs entirely local
+- **Interface:** Flask 3.0+, Jinja2, Tailwind CSS (CDN), Chart.js (CDN)
+- **Testing:** pytest, GitHub Actions on Python 3.11 and 3.12
+- **No external services.** Analysis is entirely local, including threat-intel
+  enrichment — nothing about the logs you analyse leaves the machine.
 
 ## Threat Detection Example
 
@@ -406,12 +456,21 @@ If analyzing a labeled CSV dataset (like `ssh_anomaly_dataset.csv`), the web das
 
 ## Roadmap
 
-- [ ] GeoIP enrichment (flag logins from unexpected countries)
+Done:
+
+- [x] Windows Security Event Log (XML) support
+- [x] MITRE ATT&CK technique mapping, verified against v19.2
+- [x] Sigma rule equivalents for the core detections
+- [x] Offline threat-intel enrichment against a local indicator list
+- [x] Test suite and CI on Python 3.11 / 3.12
+
+Next:
+
+- [ ] GeoIP enrichment — needs a MaxMind GeoLite2 database; see
+      [why it is absent rather than stubbed](#geoip-not-implemented)
+- [ ] Sysmon Event ID 1 (process creation) for post-compromise execution
 - [ ] Real-time log tailing with WebSocket updates
-- [ ] PDF report generation
-- [ ] Windows Event Log (XML) support
-- [ ] Docker container for one-command deployment
-- [ ] Grafana integration for dashboards
+- [ ] Grafana / OpenSearch export so findings can leave the tool
 
 ## Contributing
 
