@@ -245,7 +245,7 @@
                            border border-ops-red/40 rounded px-1 py-0.5"
                     title="Source on indicator list as {{ t.ioc_match.category }}">IOC</span>
             {% endif %}
-            <button onclick="event.stopPropagation(); copyIP('{{ t.ip }}')"
+            <button data-ip="{{ t.ip }}" onclick="event.stopPropagation(); copyIP(this.dataset.ip)"
               class="ml-1.5 text-ops-border hover:text-ops-cyan text-xs transition-colors"
               title="Copy IP">
               ⎘
@@ -578,6 +578,15 @@
   }
 
   // ── Threat detail modal ───────────────────────────────────────────────────
+  // Every value below comes from the analysed log, which is attacker-controlled
+  // by definition: a logged request for /?q=<img src=x onerror=...> would
+  // otherwise execute here the moment an analyst opened the finding.
+  function esc(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   function openModal(idx) {
     const t = allThreats[idx];
     if (!t) return;
@@ -599,20 +608,20 @@
     document.getElementById('modal-body').innerHTML = `
       <div class="space-y-5">
         <div>
-          <span class="badge ${sevBadge} text-xs">${t.severity}</span>
+          <span class="badge ${sevBadge} text-xs">${esc(t.severity)}</span>
         </div>
         <div>
           <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Threat Type</div>
-          <div class="font-display text-xl font-bold tracking-wider text-white">${t.threat_type}</div>
+          <div class="font-display text-xl font-bold tracking-wider text-white">${esc(t.threat_type)}</div>
         </div>
         <div>
           <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">MITRE ATT&amp;CK</div>
           ${t.technique ? `
-            <a href="https://attack.mitre.org/techniques/${t.technique.replace('.', '/')}/"
+            <a href="https://attack.mitre.org/techniques/${encodeURIComponent(t.technique).replace('.', '/')}/"
                target="_blank" rel="noopener"
-               class="font-mono text-sm text-ops-purple hover:underline">${t.technique}</a>
-            <span class="font-mono text-sm text-ops-text">${t.technique_name}</span>
-            <div class="font-mono text-xs text-ops-muted mt-0.5">Tactic: ${t.tactic}${
+               class="font-mono text-sm text-ops-purple hover:underline">${esc(t.technique)}</a>
+            <span class="font-mono text-sm text-ops-text">${esc(t.technique_name)}</span>
+            <div class="font-mono text-xs text-ops-muted mt-0.5">Tactic: ${esc(t.tactic)}${
               t.mapping_confidence === 'partial'
                 ? ' &middot; closest available fit' : ''}</div>`
           : `<div class="font-mono text-sm text-ops-muted">Not mapped. A statistical outlier
@@ -621,33 +630,33 @@
         ${t.ioc_match ? `
         <div>
           <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Threat Intelligence</div>
-          <div class="font-mono text-sm text-ops-red">Source listed as ${t.ioc_match.category}${
-            t.ioc_match.first_seen ? `, first seen ${t.ioc_match.first_seen}` : ''}</div>
+          <div class="font-mono text-sm text-ops-red">Source listed as ${esc(t.ioc_match.category)}${
+            t.ioc_match.first_seen ? `, first seen ${esc(t.ioc_match.first_seen)}` : ''}</div>
         </div>` : ''}
         <div class="grid grid-cols-2 gap-4">
           <div>
             <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Source IP</div>
             <div class="font-mono text-sm text-ops-cyan flex items-center gap-2">
-              ${t.ip}
-              <button onclick="copyIP('${t.ip}')"
+              ${esc(t.ip)}
+              <button onclick="copyIP(allThreats[${idx}].ip)"
                 class="text-ops-border hover:text-ops-cyan text-xs transition-colors" title="Copy">⎘</button>
             </div>
           </div>
           <div>
             <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Event Count</div>
-            <div class="font-display text-3xl font-bold text-white">${t.count}</div>
+            <div class="font-display text-3xl font-bold text-white">${esc(t.count)}</div>
           </div>
         </div>
         <div>
           <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Evidence</div>
           <div class="bg-ops-bg border border-ops-border rounded-lg p-3
                       font-mono text-xs text-ops-text leading-relaxed">
-            ${t.evidence}
+            ${esc(t.evidence)}
           </div>
         </div>
         <div>
           <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">First Detected</div>
-          <div class="font-mono text-xs text-ops-text">${t.timestamp}</div>
+          <div class="font-mono text-xs text-ops-text">${esc(t.timestamp)}</div>
         </div>
         ${mlNote}
       </div>`;

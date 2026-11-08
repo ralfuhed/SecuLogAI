@@ -8,6 +8,7 @@ input reaches the filesystem or the session.
 import importlib
 import io
 import os
+import re
 
 import pytest
 
@@ -111,6 +112,58 @@ class TestUploadHandling:
 
     def test_upload_size_is_capped(self):
         assert app_module.app.config['MAX_CONTENT_LENGTH'] == 50 * 1024 * 1024
+
+
+class TestLogContentIsNotMarkup:
+    """
+    Logged requests are attacker-written. A finding built from one must reach
+    the analyst as text, never as HTML, on every page that shows it.
+    """
+
+    PAYLOAD = '<img src=x onerror=alert(1)>'
+
+    @pytest.fixture
+    def analysed(self, client):
+        lines = ''.join(
+            f'203.0.113.9 - - [10/Jan/2025:01:30:{i:02d} +0000] '
+            f'"GET /search?q={self.PAYLOAD} HTTP/1.1" 200 512 "-" "pytest"\n'
+            for i in range(20)
+        )
+        response = client.post(
+            '/analyze',
+            data={'logfile': (io.BytesIO(lines.encode()), 'access.log')},
+            content_type='multipart/form-data',
+        )
+        assert response.status_code == 302
+        return client
+
+    def test_dashboard_escapes_payload(self, analysed):
+        body = analysed.get('/dashboard').get_data(as_text=True)
+        assert 'onerror=alert(1)' in body, 'payload should be shown, escaped'
+        assert self.PAYLOAD not in body
+
+    def test_detail_escapes_payload(self, analysed):
+        body = analysed.get('/dashboard').get_data(as_text=True)
+        result_id = re.search(r'result_id=(\w+)', body).group(1)
+        detail = analysed.get(
+            f'/detail?result_id={result_id}&type=ip&value=203.0.113.9')
+        assert detail.status_code == 200
+        assert self.PAYLOAD not in detail.get_data(as_text=True)
+
+    def test_modal_escapes_every_interpolated_field(self):
+        """
+        The threat modal is built client-side with innerHTML, which Jinja's
+        autoescaping cannot reach. Every ${t.field} must go through esc().
+        """
+        path = os.path.join(os.path.dirname(app_module.__file__),
+                            'templates', 'dashboard.html')
+        with open(path, encoding='utf-8') as f:
+            source = f.read()
+        modal = source[source.index("getElementById('modal-body').innerHTML"):]
+        modal = modal[:modal.index('${mlNote}')]
+        raw = re.findall(r'\$\{\s*t\.[\w.]+\s*\}', modal)
+        assert raw == [], f'unescaped fields in modal: {raw}'
+        assert "copyIP('{{" not in source
 
 
 class TestServerDefaults:
