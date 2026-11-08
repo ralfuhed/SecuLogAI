@@ -62,6 +62,7 @@ def extract_auth_features(events: list[dict]) -> pd.DataFrame:
 
         rows.append({
             'ip':                ip,
+            'first_seen':        times[0],   # not a model feature; dates ML alerts
             'total_attempts':    total,
             'failed_attempts':   d['failed'],
             'success_attempts':  d['success'],
@@ -130,6 +131,7 @@ def extract_web_features(events: list[dict]) -> pd.DataFrame:
 
         rows.append({
             'ip':                    ip,
+            'first_seen':            times[0],   # not a model feature; dates ML alerts
             'total_requests':        total,
             'error_rate':            d['errors'] / total if total else 0.0,
             'unique_paths':          len(d['paths']),

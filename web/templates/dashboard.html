@@ -495,13 +495,13 @@
           label: 'Anomaly Score',
           data: ipChartData.map(r => r.anomaly_score),
           backgroundColor: ipChartData.map(r =>
-            r.anomaly_score >= 0.85 ? 'rgba(244,63,94,0.7)'  :
-            r.anomaly_score >= 0.65 ? 'rgba(251,191,36,0.7)' :
+            r.anomaly_score >= 0.7 ? 'rgba(244,63,94,0.7)'  :
+            r.anomaly_score >= 0.5 ? 'rgba(251,191,36,0.7)' :
                                       'rgba(34,211,238,0.5)'
           ),
           hoverBackgroundColor: ipChartData.map(r =>
-            r.anomaly_score >= 0.85 ? 'rgba(244,63,94,1)'  :
-            r.anomaly_score >= 0.65 ? 'rgba(251,191,36,1)' :
+            r.anomaly_score >= 0.7 ? 'rgba(244,63,94,1)'  :
+            r.anomaly_score >= 0.5 ? 'rgba(251,191,36,1)' :
                                       'rgba(34,211,238,0.85)'
           ),
           borderRadius: 3,

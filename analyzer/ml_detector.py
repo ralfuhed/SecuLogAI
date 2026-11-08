@@ -28,20 +28,55 @@ _WEB_FEATURES = [
     'post_ratio', 'not_found_count', 'night_requests', 'suspicious_path_count',
 ]
 
+# Isolation Forest flags points that are unusual in any direction, and an IP
+# that made three quiet requests is as "unusual" as one that made three
+# thousand failed ones. An outlier is only reported when it is also unusually
+# high on a feature that means risk.
+_RISK_FEATURES = {
+    'auth': ['failed_attempts', 'failure_rate', 'unique_users', 'attempts_per_minute',
+             'night_attempts', 'invalid_user_count'],
+    'web':  ['error_rate', 'not_found_count', 'suspicious_path_count',
+             'requests_per_minute', 'unique_paths', 'night_requests'],
+}
 
-def _run_isolation_forest(df: pd.DataFrame, feature_cols: list[str],
-                           contamination: float = 0.1) -> pd.DataFrame:
+# "Unusually high" is a robust z-score above 3: distance from the median in
+# units of median absolute deviation. When most IPs share one value the MAD is
+# zero and a single failed login would look extreme, so the spread is floored
+# at the smallest step that means anything: one event, or a tenth of a rate.
+_RISK_Z = 3.0
+_MAD_FLOOR = {
+    'failed_attempts': 1, 'unique_users': 1, 'invalid_user_count': 1, 'night_attempts': 1,
+    'not_found_count': 1, 'suspicious_path_count': 1, 'unique_paths': 1, 'night_requests': 1,
+    'failure_rate': 0.1, 'error_rate': 0.1,
+    'attempts_per_minute': 0.5, 'requests_per_minute': 0.5,
+}
+
+# Severity comes from the absolute score, never from rank within the upload.
+# Isolation Forest's own scale puts the normal/anomalous line at 0.5. A
+# statistical outlier on its own tops out at HIGH; CRITICAL is left to the
+# rules, which carry concrete evidence of an attack.
+_HIGH_SCORE = 0.7
+
+
+def _run_isolation_forest(df: pd.DataFrame, feature_cols: list[str]) -> pd.DataFrame:
     """
-    Core ML step. Trains Isolation Forest on the feature columns,
-    then adds two new columns to the DataFrame:
-      anomaly_score, 0.0 (normal) to 1.0 (very anomalous)
-      is_anomaly, True if Isolation Forest flagged this IP as an outlier
+    Core ML step. Trains Isolation Forest on the feature columns, then adds:
+      anomaly_score, the model's absolute score in (0, 1); above 0.5 is an
+                     outlier, and values near 1 are strongly anomalous
+      is_anomaly,    True if the model flags this IP as an outlier
 
-    contamination=0.1 means "assume ~10% of IPs are outliers."
+    The score is absolute rather than rescaled to the upload. Rescaling made
+    the most unusual IP in every log score 1.0, so a log of nothing but
+    ordinary traffic still produced a CRITICAL alert.
+
+    contamination='auto' lets the model decide how many outliers there are.
+    A fixed fraction forced exactly that share of IPs to be flagged: 10% of a
+    clean log, and at most 10% of a log where more IPs were attacking.
     """
     available = [c for c in feature_cols if c in df.columns]
     if len(available) < 2 or len(df) < 2:
         # Not enough data to run ML; mark everything as normal
+        df = df.copy()
         df['anomaly_score'] = 0.0
         df['is_anomaly']    = False
         return df
@@ -52,20 +87,28 @@ def _run_isolation_forest(df: pd.DataFrame, feature_cols: list[str],
     # so a feature with range 0 to 1000 doesn't dominate one with range 0 to 1
     X_scaled = StandardScaler().fit_transform(X)
 
-    model = IsolationForest(n_estimators=100, contamination=contamination, random_state=42)
+    model = IsolationForest(n_estimators=100, contamination='auto', random_state=42)
     model.fit(X_scaled)
 
-    raw_scores  = model.decision_function(X_scaled)  # lower = more anomalous
-    predictions = model.predict(X_scaled)             # -1 = outlier, 1 = normal
-
-    # Normalise to [0, 1] where 1 = most anomalous (inverts the raw score)
-    mn, mx = raw_scores.min(), raw_scores.max()
-    normalised = 1.0 - (raw_scores - mn) / (mx - mn) if mx != mn else np.zeros(len(raw_scores))
-
     df = df.copy()
-    df['anomaly_score'] = np.round(normalised, 3)
-    df['is_anomaly']    = (predictions == -1)
+    # score_samples is the negated anomaly score from the original paper
+    df['anomaly_score'] = np.round(-model.score_samples(X_scaled), 3)
+    df['is_anomaly']    = model.predict(X_scaled) == -1
     return df
+
+
+def _high_on_a_risk_feature(df: pd.DataFrame, log_type: str) -> pd.Series:
+    """True for IPs well above the median on at least one risk feature."""
+    key  = 'auth' if log_type in ('auth', 'windows') else 'web'
+    high = pd.Series(False, index=df.index)
+    for col in _RISK_FEATURES[key]:
+        if col not in df.columns:
+            continue
+        values = df[col].fillna(0).astype(float)
+        median = values.median()
+        mad    = max((values - median).abs().median(), _MAD_FLOOR.get(col, 1e-9))
+        high  |= (values - median) / (1.4826 * mad) > _RISK_Z
+    return high
 
 
 def detect_anomalies(features_df: pd.DataFrame, log_type: str) -> list[dict]:
@@ -78,12 +121,13 @@ def detect_anomalies(features_df: pd.DataFrame, log_type: str) -> list[dict]:
 
     cols = _AUTH_FEATURES if log_type in ('auth', 'windows') else _WEB_FEATURES
     df   = _run_isolation_forest(features_df, cols)
+    df   = df[df['is_anomaly'] & _high_on_a_risk_feature(df, log_type)]
 
     threats = []
-    for _, row in df[df['is_anomaly']].iterrows():
+    for _, row in df.iterrows():
         ip    = row.get('ip', 'unknown')
         score = row.get('anomaly_score', 0.0)
-        sev   = 'CRITICAL' if score >= 0.85 else 'HIGH' if score >= 0.65 else 'MEDIUM'
+        sev   = 'HIGH' if score >= _HIGH_SCORE else 'MEDIUM'
 
         # Build a plain-English evidence string from the most notable numbers
         if log_type in ('auth', 'windows'):
@@ -105,12 +149,16 @@ def detect_anomalies(features_df: pd.DataFrame, log_type: str) -> list[dict]:
 
         evidence = '; '.join(parts) if parts else 'Statistical outlier'
         mapping  = technique_for('ML Anomaly Detected')
+        first    = row.get('first_seen')
         threats.append({
             'threat_type': 'ML Anomaly Detected',
             'severity':    sev,
             'ip':          ip,
             'evidence':    f'Anomaly score {score:.2f}, {evidence}',
-            'timestamp':   datetime.now(),
+            # When the IP was first active, like every rule alert; not the
+            # moment the analysis happened to run.
+            'timestamp':   first.to_pydatetime() if hasattr(first, 'to_pydatetime')
+                           else first if isinstance(first, datetime) else datetime.now(),
             'count':       1,
             'source':      'ml',
             # Deliberately unmapped: an outlier is a statistical property, not

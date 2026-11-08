@@ -69,20 +69,19 @@
 
   <!-- Anomaly score card -->
   <div class="bracket-card bg-ops-card rounded-xl p-5 fade-up d5
-    {% if detail.anomaly_score >= 0.85 %}border border-ops-red/40
-    {% elif detail.anomaly_score >= 0.65 %}border border-ops-amber/40
+    {% if detail.anomaly_score >= 0.7 %}border border-ops-red/40
+    {% elif detail.anomaly_score >= 0.5 %}border border-ops-amber/40
     {% else %}border border-ops-border{% endif %}">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2">ML ANOMALY</div>
     <div class="font-display text-2xl font-bold
-      {% if detail.anomaly_score >= 0.85 %}text-ops-red
-      {% elif detail.anomaly_score >= 0.65 %}text-ops-amber
+      {% if detail.anomaly_score >= 0.7 %}text-ops-red
+      {% elif detail.anomaly_score >= 0.5 %}text-ops-amber
       {% else %}text-ops-green{% endif %}">
       {{ "%.2f"|format(detail.anomaly_score) }}
     </div>
     <div class="font-mono text-xs text-ops-muted mt-1">
-      {% if detail.anomaly_score >= 0.85 %}CRITICAL OUTLIER
-      {% elif detail.anomaly_score >= 0.65 %}HIGH RISK
-      {% elif detail.anomaly_score >= 0.4  %}SUSPICIOUS
+      {% if detail.anomaly_score >= 0.7 %}STRONG OUTLIER
+      {% elif detail.anomaly_score >= 0.5 %}OUTLIER
       {% else %}NORMAL{% endif %}
     </div>
   </div>
@@ -641,14 +640,14 @@
             <div class="flex items-center gap-2">
               <div class="w-20 h-1.5 rounded-full bg-ops-border overflow-hidden">
                 <div class="h-full rounded-full
-                  {% if r.score >= 0.85 %}bg-ops-red
-                  {% elif r.score >= 0.65 %}bg-ops-amber
+                  {% if r.score >= 0.7 %}bg-ops-red
+                  {% elif r.score >= 0.5 %}bg-ops-amber
                   {% else %}bg-ops-cyan{% endif %}"
                   data-width="{{ (r.score * 100) | int }}"></div>
               </div>
               <span class="
-                {% if r.score >= 0.85 %}text-ops-red
-                {% elif r.score >= 0.65 %}text-ops-amber
+                {% if r.score >= 0.7 %}text-ops-red
+                {% elif r.score >= 0.5 %}text-ops-amber
                 {% else %}text-ops-muted{% endif %}">
                 {{ "%.2f"|format(r.score) }}
               </span>
