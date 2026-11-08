@@ -211,7 +211,7 @@ SecuLogAI/
 │   ├── enrichment.py          # Offline threat-intel annotation
 │   └── ml_detector.py         # Isolation Forest anomaly detection
 ├── rules/sigma/               # Sigma-format equivalents of the core rules
-├── tests/                     # 150 tests: parsers, rules, security, pipeline
+├── tests/                     # 350+ tests: parsers, rules, ML, security, pipeline
 ├── web/
 │   ├── app.py                 # Flask routes & analysis pipeline
 │   ├── templates/             # Jinja2 + Tailwind + Chart.js
@@ -483,9 +483,14 @@ has deliberately been left out of scope.
 |---|---|
 | Flask `secret_key` was a hardcoded literal in source | Read from `SECULOG_SECRET_KEY`, falling back to a random key generated at startup |
 | `app.run(debug=True)`, Werkzeug's debugger is an interactive Python console on any traceback, i.e. RCE for anyone who can reach the port | Off by default; opt in with `SECULOG_DEBUG=1` |
-| Uploaded filename used directly in a path, allowing `../../` traversal outside the upload folder | `werkzeug.utils.secure_filename` plus an extension allowlist (`.log`, `.txt`, `.csv`) |
+| Uploaded filename used directly in a path, allowing `../../` traversal outside the upload folder | `werkzeug.utils.secure_filename` plus an extension allowlist (`.log`, `.txt`, `.csv`, `.xml`) |
 | No upload size limit | `MAX_CONTENT_LENGTH` capped at 50 MB, with a 413 handler |
 | An unparseable upload raised `KeyError` and returned a 500 with a stack trace | Errors are surfaced on the upload page instead |
+| Logged request text rendered as HTML in the threat modal: a logged `<img onerror=…>` ran in the analyst's browser | Every log-derived value is escaped; a Content-Security-Policy with per-request nonces, no `unsafe-inline` and no inline handlers means a missed escape still cannot run |
+| `?result_id=` was joined into a file path, so `../../x` read any `.json` the process could reach | Only generated ids (12 lowercase hex characters) are accepted |
+| Uploads saved under their own name in a shared folder and never deleted: concurrent same-named uploads could overwrite each other mid-analysis | Each upload gets a unique name and is deleted once analysed |
+| Parser regexes could be made cubic or quadratic by one crafted line (about 45 s for 4 KB of spaces) | Rewritten to run in linear time; tests run hostile lines under a hard time limit |
+| CLI printed log text raw, so escape sequences in a log could erase findings on screen or retitle the terminal | Control characters in log-derived output are shown as `\xNN` |
 
 Configuration lives in environment variables, see `.env.example`. The server
 binds to `127.0.0.1` by default.
@@ -504,6 +509,11 @@ need multi-user access, put an authenticating reverse proxy in front of it, don'
 
 Analysis results are written unencrypted to `data/results/` as JSON. Log data
 is sensitive; treat that directory the way you would treat the logs themselves.
+Uploaded logs are deleted once analysed, but the results include the events.
+
+Results are viewable by anyone who has their id; they are not tied to the
+session that created them. Ids are 48 random bits, so they cannot be guessed
+in practice, and this is what makes `/detail` links shareable.
 
 ## Accuracy & Ground Truth
 
