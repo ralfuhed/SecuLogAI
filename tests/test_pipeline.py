@@ -168,6 +168,29 @@ class TestCommandLineInterface:
         assert result.returncode == 0, result.stderr
         assert 'Brute Force Attack' in result.stdout
 
+    def test_log_text_cannot_drive_the_terminal(self, tmp_path):
+        """
+        Evidence quotes the log. A raw ESC there let a crafted request move the
+        cursor up and erase the findings printed above it, or retitle the
+        terminal. Output is not a TTY here, so the tool adds no colour codes of
+        its own and any ESC in stdout came from the log.
+        """
+        esc = '\x1b'
+        payload = f'/s?q=<script>x</script>{esc}[1A{esc}[2K{esc}]0;owned\x07'
+        log = tmp_path / 'escapes.log'
+        log.write_text(''.join(
+            f'203.0.113.66 - - [10/Jan/2025:01:30:0{i} +0000] '
+            f'"GET {payload} HTTP/1.1" 200 1 "-" "x"\n' for i in range(3)
+        ), encoding='utf-8')
+        result = subprocess.run(
+            [sys.executable, 'cli.py', 'analyze', str(log), '--type', 'web'],
+            cwd=REPO_ROOT, capture_output=True, text=True, encoding='utf-8', timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        assert 'XSS Attempt' in result.stdout
+        assert esc not in result.stdout and '\x07' not in result.stdout
+        assert '\\x1b[1A' in result.stdout, 'the sequence should be shown, defanged'
+
     def test_reports_missing_file_without_traceback(self):
         result = subprocess.run(
             [sys.executable, 'cli.py', 'analyze', 'does_not_exist.log'],

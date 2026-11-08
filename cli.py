@@ -12,6 +12,7 @@ Examples:
 """
 
 import argparse
+import re
 import sys
 import os
 from datetime import datetime
@@ -26,13 +27,16 @@ from analyzer.enrichment       import enrich_threats
 # ── Terminal colour codes (ANSI escape sequences) ─────────────────────────────
 # These make the terminal output colour-coded without any extra library.
 # \033[  = escape sequence start;  m = end;  \033[0m = reset to default
-RED     = '\033[91m'
-YELLOW  = '\033[93m'
-CYAN    = '\033[96m'
-GREEN   = '\033[92m'
-BOLD    = '\033[1m'
-RESET   = '\033[0m'
-DIM     = '\033[2m'
+# Off entirely when output is piped or redirected, so a saved report holds no
+# escape codes; a few call sites use BOLD and RESET directly, not colorize().
+_TTY    = sys.stdout.isatty()
+RED     = '\033[91m' if _TTY else ''
+YELLOW  = '\033[93m' if _TTY else ''
+CYAN    = '\033[96m' if _TTY else ''
+GREEN   = '\033[92m' if _TTY else ''
+BOLD    = '\033[1m'  if _TTY else ''
+RESET   = '\033[0m'  if _TTY else ''
+DIM     = '\033[2m'  if _TTY else ''
 
 SEV_COLOR = {
     'CRITICAL': RED,
@@ -47,6 +51,18 @@ def colorize(text: str, color: str) -> str:
     if sys.stdout.isatty():   # only colour if output is a real terminal
         return f'{color}{text}{RESET}'
     return text
+
+
+# C0 controls, DEL and C1 controls. Everything printed below that came out of a
+# log is attacker-written, and a raw ESC lets a crafted line move the cursor
+# and erase the findings printed above it, retitle the terminal, or on some
+# terminals write to the clipboard. Such characters are shown as \xNN instead.
+_CONTROL_CHARS = re.compile(r'[\x00-\x1f\x7f-\x9f]')
+
+
+def safe(text) -> str:
+    """Render log-derived text inert for the terminal."""
+    return _CONTROL_CHARS.sub(lambda m: f'\\x{ord(m.group()):02x}', str(text))
 
 
 def print_header():
@@ -66,7 +82,7 @@ def print_summary(events, threats, log_type, filepath):
         sev_counts[t['severity']] = sev_counts.get(t['severity'], 0) + 1
 
     print(colorize('-' * 50, DIM))
-    print(f'  File      : {os.path.basename(filepath)}')
+    print(f'  File      : {safe(os.path.basename(filepath))}')
     print(f'  Log type  : {log_type.upper()}')
     print(f'  Events    : {len(events):,}')
     print(f'  Unique IPs: {unique_ips}')
@@ -96,7 +112,7 @@ def print_threats(threats):
         ts    = t['timestamp'].strftime('%b %d %H:%M:%S') if isinstance(t['timestamp'], datetime) else str(t['timestamp'])
 
         print(f"  {colorize(f'[{sev}]', color)} {BOLD}{t['threat_type']}{RESET}")
-        print(f"    IP        : {t['ip']}")
+        print(f"    IP        : {safe(t['ip'])}")
         if t.get('technique'):
             attck = f"{t['technique']} {t['technique_name']} ({t['tactic']})"
             if t.get('mapping_confidence') == 'partial':
@@ -104,8 +120,8 @@ def print_threats(threats):
             print(f"    ATT&CK    : {attck}")
         if t.get('ioc_match'):
             print(f"    {colorize('THREAT INTEL', RED)}: source listed as "
-                  f"{t['ioc_match']['category']}")
-        print(f"    Evidence  : {t['evidence']}")
+                  f"{safe(t['ioc_match']['category'])}")
+        print(f"    Evidence  : {safe(t['evidence'])}")
         print(f"    First seen: {ts}")
         if i < len(threats):
             print()   # blank line between threats
