@@ -41,7 +41,42 @@ class TestSecretKey:
 
 
 class TestUploadHandling:
-    def test_rejects_path_traversal_in_filename(self, client):
+    @pytest.fixture
+    def saved_paths(self, monkeypatch):
+        """Record where each upload was written, as seen by the analyser."""
+        paths = []
+        real = app_module.run_analysis
+
+        def recording(filepath, *args, **kwargs):
+            paths.append(filepath)
+            assert os.path.exists(filepath), 'upload missing while being analysed'
+            return real(filepath, *args, **kwargs)
+
+        monkeypatch.setattr(app_module, 'run_analysis', recording)
+        return paths
+
+    def _upload(self, client, name, content=b'Jan 10 08:15:22 srv sshd[1]: '
+                b'Failed password for root from 10.0.0.1 port 22 ssh2\n'):
+        return client.post('/analyze', data={'logfile': (io.BytesIO(content), name)},
+                           content_type='multipart/form-data')
+
+    def test_same_named_uploads_do_not_share_a_file(self, client, saved_paths):
+        """Two analysts uploading auth.log must not overwrite each other."""
+        self._upload(client, 'auth.log')
+        self._upload(client, 'auth.log')
+        assert len(saved_paths) == 2
+        assert saved_paths[0] != saved_paths[1]
+
+    def test_upload_is_removed_after_analysis(self, client, saved_paths):
+        self._upload(client, 'auth.log')
+        assert not os.path.exists(saved_paths[0])
+
+    def test_upload_is_removed_when_nothing_parses(self, client, saved_paths):
+        response = self._upload(client, 'junk.log', b'nothing parseable here\n')
+        assert b'No parseable events' in response.data
+        assert not os.path.exists(saved_paths[0])
+
+    def test_rejects_path_traversal_in_filename(self, client, saved_paths):
         """An upload named ../../pwned.log must not escape the upload folder."""
         canary = os.path.normpath(
             os.path.join(app_module.UPLOAD_FOLDER, '..', '..', 'pwned.log')
@@ -60,7 +95,9 @@ class TestUploadHandling:
             f'Upload escaped the upload folder and wrote to {canary}'
         )
         # The sanitised name should land inside the upload folder instead.
-        assert os.path.exists(os.path.join(app_module.UPLOAD_FOLDER, 'pwned.log'))
+        assert os.path.dirname(os.path.abspath(saved_paths[0])) == \
+            os.path.abspath(app_module.UPLOAD_FOLDER)
+        assert saved_paths[0].endswith('_pwned.log')
 
     def test_rejects_disallowed_extension(self, client):
         response = client.post(

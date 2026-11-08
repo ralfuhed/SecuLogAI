@@ -330,11 +330,22 @@ def analyze():
     if filename != file.filename:
         log.warning('Upload filename sanitised: %r -> %r', file.filename, filename)
 
-    save_path = os.path.join(UPLOAD_FOLDER, filename)
+    # Each upload gets a name of its own. The container runs two workers, and
+    # two analysts uploading "auth.log" at once would otherwise overwrite each
+    # other's file mid-analysis. The file is removed once analysed: the results
+    # JSON holds everything the pages need, and a raw log is sensitive data
+    # that should not accumulate on disk.
+    save_path = os.path.join(UPLOAD_FOLDER, f'{uuid.uuid4().hex}_{filename}')
     file.save(save_path)
     log.info('Analysing upload %r', filename)
 
-    results = run_analysis(save_path, request.form.get('log_type', 'auto'))
+    try:
+        results = run_analysis(save_path, request.form.get('log_type', 'auto'))
+    finally:
+        try:
+            os.remove(save_path)
+        except OSError:
+            log.exception('Could not remove analysed upload %s', save_path)
     if 'error' in results:
         log.warning('Analysis of %r produced no events: %s', filename, results['error'])
         return render_template('index.html', error=results['error'])
