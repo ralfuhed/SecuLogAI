@@ -185,6 +185,8 @@ class TestContentSecurityPolicy:
         script_src = re.search(r'script-src ([^;]+)', policy).group(1)
         assert "'unsafe-inline'" not in script_src
         assert "'unsafe-eval'" not in script_src
+        style_src = re.search(r'style-src ([^;]+)', policy).group(1)
+        assert "'unsafe-inline'" not in style_src
 
     def test_every_inline_script_carries_the_request_nonce(self, client):
         response = client.get('/')
@@ -193,6 +195,12 @@ class TestContentSecurityPolicy:
         inline = [t for t in tags if 'src=' not in t]
         assert inline, 'expected inline scripts on the index page'
         assert all(f'nonce="{nonce}"' in t for t in inline), inline
+
+    def test_every_inline_style_block_carries_the_request_nonce(self, client):
+        response = client.get('/')
+        nonce = self._nonce(response)
+        tags = re.findall(r'<style\b[^>]*>', response.get_data(as_text=True))
+        assert tags and all(f'nonce="{nonce}"' in t for t in tags), tags
 
     def test_nonce_changes_per_request(self, client):
         assert self._nonce(client.get('/')) != self._nonce(client.get('/'))
@@ -206,6 +214,25 @@ class TestContentSecurityPolicy:
                     if re.search(r'\son[a-z]+\s*=\s*["\']', line):
                         offenders.append(f'{name}:{lineno}')
         assert offenders == []
+
+    def test_templates_use_no_style_attributes(self):
+        """Without 'unsafe-inline' for styles, style= in markup is ignored."""
+        offenders = []
+        for name in os.listdir(self.TEMPLATE_DIR):
+            with open(os.path.join(self.TEMPLATE_DIR, name), encoding='utf-8') as f:
+                for lineno, line in enumerate(f, 1):
+                    if re.search(r'\sstyle\s*=\s*["\']', line):
+                        offenders.append(f'{name}:{lineno}')
+        assert offenders == []
+
+    def test_tailwind_is_served_locally(self, client):
+        """The prebuilt stylesheet replaced the CDN; it must exist and be linked."""
+        page = client.get('/').get_data(as_text=True)
+        assert 'cdn.tailwindcss.com' not in page
+        assert '/static/tailwind.css' in page
+        css = client.get('/static/tailwind.css')
+        assert css.status_code == 200
+        assert b'.bg-ops-card' in css.data
 
     def test_sets_nosniff(self, client):
         assert client.get('/').headers['X-Content-Type-Options'] == 'nosniff'

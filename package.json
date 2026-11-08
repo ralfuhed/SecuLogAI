@@ -1,0 +1,11 @@
+{
+  "name": "seculogai-css",
+  "private": true,
+  "description": "Builds web/static/tailwind.css. Only needed when templates change; the built file is committed.",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i web/static/src/tailwind.css -o web/static/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}
