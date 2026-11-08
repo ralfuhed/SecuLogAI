@@ -202,7 +202,8 @@ SecuLogAI/
 ├── tests/                     # 150 tests: parsers, rules, security, pipeline
 ├── web/
 │   ├── app.py                 # Flask routes & analysis pipeline
-│   └── templates/             # Jinja2 + Tailwind + Chart.js
+│   ├── templates/             # Jinja2 + Tailwind + Chart.js
+│   └── static/tailwind.css    # Prebuilt stylesheet (npm run build:css)
 ├── data/
 │   ├── ioc_list.txt           # Local indicator list for enrichment
 │   └── ssh_anomaly_dataset.csv # Labeled dataset (ground truth)
@@ -215,11 +216,16 @@ SecuLogAI/
 Sample logs are generated rather than committed, run
 `python generate_sample_logs.py` after cloning.
 
+The interface's Tailwind stylesheet is prebuilt and committed as
+`web/static/tailwind.css`, so running the app needs no Node. After adding or
+changing Tailwind classes in a template, rebuild it with
+`npm install && npm run build:css`; CI fails if the committed file is stale.
+
 ## Tech Stack
 
 - **Detection:** Python 3.11+, standard library regex and `xml.etree` for parsing
 - **ML:** scikit-learn (Isolation Forest), pandas, numpy
-- **Interface:** Flask 3.0+, Jinja2, Tailwind CSS (CDN), Chart.js (CDN)
+- **Interface:** Flask 3.0+, Jinja2, Tailwind CSS (prebuilt, see below), Chart.js (CDN, version-pinned)
 - **Testing:** pytest, GitHub Actions on Python 3.11 and 3.12
 - **No external services.** Analysis is entirely local, including threat-intel
   enrichment, nothing about the logs you analyse leaves the machine.

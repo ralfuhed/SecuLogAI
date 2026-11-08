@@ -644,7 +644,7 @@
                   {% if r.score >= 0.85 %}bg-ops-red
                   {% elif r.score >= 0.65 %}bg-ops-amber
                   {% else %}bg-ops-cyan{% endif %}"
-                  style="width: {{ (r.score * 100) | int }}%"></div>
+                  data-width="{{ (r.score * 100) | int }}"></div>
               </div>
               <span class="
                 {% if r.score >= 0.85 %}text-ops-red

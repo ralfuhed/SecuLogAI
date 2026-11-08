@@ -33,3 +33,6 @@ data/uploads/
 
 # Stray SSH artifact from a malformed path; the U+F03A lookalike colon is deliberate
 C?Usersptrog.ssh*
+
+# Node is only used to build the committed Tailwind CSS
+node_modules/

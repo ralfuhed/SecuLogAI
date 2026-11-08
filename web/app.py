@@ -55,13 +55,12 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_BYTES
 # defence; this policy is the second, so a value that slips past escaping still
 # cannot run. Inline <script> blocks carry a per-request nonce, and inline event
 # handlers are not used at all (pages dispatch data-action clicks instead).
-# Tailwind's CDN build injects <style> at runtime, hence 'unsafe-inline' for
-# styles only; styles cannot execute script.
+# Styles follow the same rule: Tailwind is prebuilt into a static file, the one
+# <style> block carries the nonce, and no template uses a style= attribute.
 CSP_TEMPLATE = '; '.join([
     "default-src 'self'",
-    "script-src 'self' 'nonce-{nonce}' https://cdn.tailwindcss.com "
-    "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net/npm/chart.js@4.4.0/",
+    "style-src 'self' 'nonce-{nonce}' https://fonts.googleapis.com",
     "font-src https://fonts.gstatic.com",
     "img-src 'self' data:",
     "connect-src 'self'",

@@ -36,6 +36,26 @@ jobs:
           python cli.py analyze data/sample_access.log --type web
           python cli.py analyze data/sample_security.xml --type windows
 
+  css:
+    # The built stylesheet is committed so running the app needs no Node. This
+    # fails when a template gains a class that the committed file lacks.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Rebuild the stylesheet
+        run: |
+          npm ci
+          npm run build:css
+
+      - name: Confirm the committed stylesheet is current
+        run: git diff --exit-code -- web/static/tailwind.css
+
   docker:
     runs-on: ubuntu-latest
     steps:
