@@ -18,16 +18,23 @@ from datetime import datetime
 # (?P<name>...) = named capture group, saves the matched text under that name.
 # Example line: Jan 10 03:14:22 srv sshd[12]: Failed password for root from 1.2.3.4 port 22 ssh2
 
+#
+# Every line is attacker-influenced, so these must run in linear time. The
+# leading \b stops search() from retrying at every position inside a word:
+# without it one long word made the search quadratic, roughly two hours for a
+# single 1 MB line. A match can only start at a word boundary anyway, since a
+# start mid-word always has an earlier start at that word's first character.
+_AUTH_PREFIX = r'\b(?P<month>\w+)\s+(?P<day>\d+)\s+(?P<time>\S+)\s+\S+\s+sshd\[\d+\]:\s+'
 _AUTH_FAILED = re.compile(
-    r'(?P<month>\w+)\s+(?P<day>\d+)\s+(?P<time>\S+)\s+\S+\s+sshd\[\d+\]:\s+'
+    _AUTH_PREFIX +
     r'Failed password for (?:invalid user )?(?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+) port \d+'
 )
 _AUTH_ACCEPTED = re.compile(
-    r'(?P<month>\w+)\s+(?P<day>\d+)\s+(?P<time>\S+)\s+\S+\s+sshd\[\d+\]:\s+'
+    _AUTH_PREFIX +
     r'Accepted (?:password|publickey) for (?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+) port \d+'
 )
 _AUTH_INVALID = re.compile(
-    r'(?P<month>\w+)\s+(?P<day>\d+)\s+(?P<time>\S+)\s+\S+\s+sshd\[\d+\]:\s+'
+    _AUTH_PREFIX +
     r'Invalid user (?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+)'
 )
 
@@ -38,9 +45,20 @@ _AUTH_INVALID = re.compile(
 # NOT as \S+. Attack payloads routinely contain raw spaces and quotes, # "?id=1 UNION SELECT ..." or '"><img src=x onerror=alert(1)>', and a \S+
 # path silently drops exactly those lines, turning the most interesting
 # traffic in the log into a false negative.
+#
+# The path also starts and ends on a non-space character. With \s+(.*?)\s+ a
+# run of spaces could be split three ways between the two \s+ and the path,
+# and every split was tried: cubic time, about 45 seconds for one 4 KB line of
+# spaces. The lazy match already put surrounding spaces outside the path, so
+# results are unchanged; an empty path leaves the group unset, read as ''.
+#
+# The protocol after HTTP/ is capped at 64 characters. Uncapped, every " HTTP/"
+# in a line rescanned to the end of the line for a closing quote, which is
+# quadratic: about a minute for one 1 MB line repeating " HTTP/". Real versions
+# are "1.0", "1.1" or "2.0".
 _WEB_ACCESS = re.compile(
     r'(?P<ip>[0-9a-fA-F:.]+)\s+-\s+-\s+\[(?P<timestamp>[^\]]+)\]\s+'
-    r'"(?P<method>\w+)\s+(?P<path>.*?)\s+HTTP/[^"]*"\s+'
+    r'"(?P<method>\w+)(?:\s+(?P<path>\S(?:.*?\S)??)|\s)\s+HTTP/[^"]{0,64}"\s+'
     r'(?P<status>\d+)\s+(?P<size>\d+|-)'
     r'(?:\s+"(?P<referer>[^"]*)"\s+"(?P<agent>[^"]*)")?'
 )
@@ -122,7 +140,7 @@ def parse_web_log(filepath: str) -> list[dict]:
                 events.append({
                     'type': 'web', 'event': 'http_request',
                     'ip': m.group('ip'), 'method': m.group('method'),
-                    'path': m.group('path'), 'status': int(m.group('status')),
+                    'path': m.group('path') or '', 'status': int(m.group('status')),
                     'size': int(m.group('size')) if m.group('size') != '-' else 0,
                     'agent': m.group('agent') or '',
                     'timestamp': _parse_web_ts(m.group('timestamp')),

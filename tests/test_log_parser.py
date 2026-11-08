@@ -4,6 +4,13 @@ A parser that silently drops lines is a false-negative generator, so these
 tests assert on exact event counts, not just "it didn't crash".
 """
 
+import subprocess
+import sys
+
+import pytest
+
+from conftest import REPO_ROOT
+
 from analyzer.log_parser import (
     auto_parse,
     parse_auth_log,
@@ -193,3 +200,67 @@ class TestIPv6Sources:
         events = parse_auth_log(str(log))
         threats = run_all_rules(events, 'auth')
         assert any(t['ip'] == '2001:db8::99' for t in threats)
+
+
+class TestHostileLineShapes:
+    """
+    Every line is attacker-influenced, so parsing must stay linear in line
+    length. The web pattern used to be cubic on a run of spaces (about 45
+    seconds for 4 KB) and the auth patterns quadratic on one long word. Each
+    case here took minutes to hours before and takes well under a second now;
+    the 10 second limit is generous so a slow CI runner cannot make it flaky.
+    """
+
+    HEAD = '1.2.3.4 - - [10/Jan/2025:08:00:01 +0000] "GET'
+    SIZE = 200_000
+
+    def _parses_within(self, parser, path, seconds=10):
+        """
+        Parse in a child process with a hard limit. A regression back to
+        super-linear matching then fails quickly instead of hanging CI.
+        """
+        code = f'from analyzer.log_parser import {parser}; {parser}({str(path)!r})'
+        try:
+            subprocess.run([sys.executable, '-c', code], cwd=REPO_ROOT,
+                           check=True, timeout=seconds)
+        except subprocess.TimeoutExpired:
+            pytest.fail(f'{parser} took over {seconds}s on a hostile line')
+
+    @pytest.mark.parametrize('line', [
+        pytest.param(HEAD + ' ' * SIZE + 'a', id='run of spaces'),
+        # Only quadratic, so it needs a bigger line to stand out: about a
+        # minute before, a tenth of a second now.
+        pytest.param(HEAD + ' a HTTP/' * (5 * SIZE // 8), id='fake HTTP/ repeated'),
+    ])
+    def test_web_parse_is_linear(self, tmp_path, line):
+        log = tmp_path / 'hostile.log'
+        log.write_text(line + '\n')
+        self._parses_within('parse_web_log', log)
+
+    def test_auth_parse_is_linear(self, tmp_path):
+        log = tmp_path / 'hostile_auth.log'
+        log.write_text('a' * self.SIZE + '\n')
+        self._parses_within('parse_auth_log', log)
+
+    def test_payload_after_a_fake_protocol_is_not_hidden(self, tmp_path):
+        """
+        The path used to end at the first " HTTP/", and everything after it
+        was swallowed as the protocol version, invisible to every rule.
+        """
+        from analyzer.rule_engine import detect_sql_injection
+        payload = "?id=1 UNION SELECT username,password FROM users WHERE id=1--"
+        log = tmp_path / 'smuggled.log'
+        log.write_text(
+            f'{self.HEAD} /products HTTP/1.1{payload} HTTP/1.1" 500 0 "-" "sqlmap"\n'
+        )
+        events = parse_web_log(str(log))
+        assert len(events) == 1
+        assert payload in events[0]['path']
+        assert detect_sql_injection(events)
+
+    def test_empty_request_path_still_parses(self, tmp_path):
+        log = tmp_path / 'empty_path.log'
+        log.write_text(f'{self.HEAD}  HTTP/1.1" 400 0 "-" "-"\n')
+        events = parse_web_log(str(log))
+        assert len(events) == 1
+        assert events[0]['path'] == ''
