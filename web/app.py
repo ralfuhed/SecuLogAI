@@ -254,7 +254,7 @@ def run_analysis(filepath: str, log_type_hint: str = 'auto') -> dict:
         for _, row in features_df.iterrows():
             ip_features[str(row['ip'])] = {
                 k: round(float(v), 3) if isinstance(v, float) else int(v)
-                for k, v in row.items() if k != 'ip'
+                for k, v in row.items() if k not in ('ip', 'first_seen')
             }
 
     # ── Build & save full result ───────────────────────────────────────────────
