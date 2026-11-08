@@ -242,17 +242,34 @@ def detect_credential_stuffing(events):
 
 # ── Web rules ────────────────────────────────────────────────────────────────
 
+# A real protocol is HTTP/1.0, HTTP/1.1 or HTTP/2.0. Anything else after the
+# path means the request line carried a second " HTTP/" and the parser ended
+# the path at the first one, so what follows is attacker text that would
+# otherwise never be scanned:
+#   GET /products HTTP/1.1?id=1 UNION SELECT 1,2-- HTTP/1.1
+_CLEAN_PROTOCOL = re.compile(r'HTTP/\d(?:\.\d)?')
+
+
+def _request_text(e):
+    """The text the web signatures scan: the path, plus any smuggled tail."""
+    path     = e.get('path', '')
+    protocol = e.get('protocol') or ''
+    if protocol and not _CLEAN_PROTOCOL.fullmatch(protocol):
+        return f'{path} {protocol}'
+    return path
+
+
 def detect_sql_injection(events):
     """Flag IPs whose request paths contain SQL keywords or special characters."""
     threats = []
     by_ip   = defaultdict(list)
     for e in events:
-        if e.get('type') == 'web' and _SQLI.search(_decode(e.get('path', ''))):
+        if e.get('type') == 'web' and _SQLI.search(_decode(_request_text(e))):
             by_ip[e['ip']].append(e)
     for ip, hits in by_ip.items():
         sev = 'CRITICAL' if len(hits) >= 10 else 'HIGH'
         threats.append(_threat('SQL Injection Attempt', sev, ip,
-            f'{len(hits)} request(s). Example: {hits[0]["path"][:80]}',
+            f'{len(hits)} request(s). Example: {_request_text(hits[0])[:80]}',
             hits[0]['timestamp'], len(hits)))
     return threats
 
@@ -262,11 +279,11 @@ def detect_directory_traversal(events):
     threats = []
     by_ip   = defaultdict(list)
     for e in events:
-        if e.get('type') == 'web' and _TRAVERSAL.search(_decode(e.get('path', ''))):
+        if e.get('type') == 'web' and _TRAVERSAL.search(_decode(_request_text(e))):
             by_ip[e['ip']].append(e)
     for ip, hits in by_ip.items():
         threats.append(_threat('Directory Traversal', 'HIGH', ip,
-            f'{len(hits)} attempt(s). Example: {hits[0]["path"][:80]}',
+            f'{len(hits)} attempt(s). Example: {_request_text(hits[0])[:80]}',
             hits[0]['timestamp'], len(hits)))
     return threats
 
@@ -276,11 +293,11 @@ def detect_xss(events):
     threats = []
     by_ip   = defaultdict(list)
     for e in events:
-        if e.get('type') == 'web' and _XSS.search(_decode(e.get('path', ''))):
+        if e.get('type') == 'web' and _XSS.search(_decode(_request_text(e))):
             by_ip[e['ip']].append(e)
     for ip, hits in by_ip.items():
         threats.append(_threat('XSS Attempt', 'HIGH', ip,
-            f'{len(hits)} request(s). Example: {hits[0]["path"][:80]}',
+            f'{len(hits)} request(s). Example: {_request_text(hits[0])[:80]}',
             hits[0]['timestamp'], len(hits)))
     return threats
 
@@ -290,11 +307,11 @@ def detect_command_injection(events):
     threats = []
     by_ip   = defaultdict(list)
     for e in events:
-        if e.get('type') == 'web' and _CMDI.search(_decode(e.get('path', ''))):
+        if e.get('type') == 'web' and _CMDI.search(_decode(_request_text(e))):
             by_ip[e['ip']].append(e)
     for ip, hits in by_ip.items():
         threats.append(_threat('Command Injection Attempt', 'CRITICAL', ip,
-            f'{len(hits)} attempt(s). Example: {hits[0]["path"][:80]}',
+            f'{len(hits)} attempt(s). Example: {_request_text(hits[0])[:80]}',
             hits[0]['timestamp'], len(hits)))
     return threats
 

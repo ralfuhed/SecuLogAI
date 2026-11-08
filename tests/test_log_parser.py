@@ -258,6 +258,38 @@ class TestHostileLineShapes:
         assert payload in events[0]['path']
         assert detect_sql_injection(events)
 
+    @pytest.mark.parametrize('tail, rule', [
+        ("?id=1 UNION SELECT 1,2--", 'detect_sql_injection'),
+        ("?u=admin' OR '1'='1", 'detect_sql_injection'),
+        ("?q=<script>alert(1)</script>", 'detect_xss'),
+        ("?f=../../etc/passwd", 'detect_directory_traversal'),
+        ("?h=8.8.8.8;cat /etc/passwd", 'detect_command_injection'),
+    ])
+    def test_short_payload_after_a_fake_protocol_is_scanned(self, tmp_path, tail, rule):
+        """
+        Under 64 characters the payload still lands in the protocol field, not
+        the path. The rules scan any protocol that is not a plain HTTP version.
+        """
+        from analyzer import rule_engine
+        log = tmp_path / 'smuggled_short.log'
+        log.write_text(f'{self.HEAD} /p HTTP/1.1{tail} HTTP/1.1" 200 1 "-" "x"\n')
+        events = parse_web_log(str(log))
+        assert len(events) == 1
+        assert events[0]['path'] == '/p'
+        threats = getattr(rule_engine, rule)(events)
+        assert threats
+        assert tail[:20] in threats[0]['evidence']
+
+    @pytest.mark.parametrize('protocol', ['HTTP/1.0', 'HTTP/1.1', 'HTTP/2.0', 'HTTP/2'])
+    def test_plain_protocols_add_nothing_to_scan(self, tmp_path, protocol):
+        from analyzer.rule_engine import _request_text, run_all_rules
+        log = tmp_path / 'plain.log'
+        log.write_text(f'{self.HEAD} /index.html {protocol}" 200 1 "-" "x"\n')
+        events = parse_web_log(str(log))
+        assert events[0]['protocol'] == protocol
+        assert _request_text(events[0]) == '/index.html'
+        assert run_all_rules(events, 'web') == []
+
     def test_empty_request_path_still_parses(self, tmp_path):
         log = tmp_path / 'empty_path.log'
         log.write_text(f'{self.HEAD}  HTTP/1.1" 400 0 "-" "-"\n')

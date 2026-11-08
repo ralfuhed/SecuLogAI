@@ -58,7 +58,7 @@ _AUTH_INVALID = re.compile(
 # are "1.0", "1.1" or "2.0".
 _WEB_ACCESS = re.compile(
     r'(?P<ip>[0-9a-fA-F:.]+)\s+-\s+-\s+\[(?P<timestamp>[^\]]+)\]\s+'
-    r'"(?P<method>\w+)(?:\s+(?P<path>\S(?:.*?\S)??)|\s)\s+HTTP/[^"]{0,64}"\s+'
+    r'"(?P<method>\w+)(?:\s+(?P<path>\S(?:.*?\S)??)|\s)\s+(?P<protocol>HTTP/[^"]{0,64})"\s+'
     r'(?P<status>\d+)\s+(?P<size>\d+|-)'
     r'(?:\s+"(?P<referer>[^"]*)"\s+"(?P<agent>[^"]*)")?'
 )
@@ -140,7 +140,8 @@ def parse_web_log(filepath: str) -> list[dict]:
                 events.append({
                     'type': 'web', 'event': 'http_request',
                     'ip': m.group('ip'), 'method': m.group('method'),
-                    'path': m.group('path') or '', 'status': int(m.group('status')),
+                    'path': m.group('path') or '', 'protocol': m.group('protocol'),
+                    'status': int(m.group('status')),
                     'size': int(m.group('size')) if m.group('size') != '-' else 0,
                     'agent': m.group('agent') or '',
                     'timestamp': _parse_web_ts(m.group('timestamp')),
