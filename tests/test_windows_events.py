@@ -89,6 +89,49 @@ class TestWindowsParser:
         assert log_type == 'windows'
         assert len(events) == 5
 
+    def test_event_viewer_save_as_xml(self, fixture_path, tmp_path):
+        """Event Viewer adds an XML declaration and its own <Events> root."""
+        with open(fixture_path('windows_security.xml'), encoding='utf-8') as f:
+            body = f.read()
+        saved = tmp_path / 'saved.xml'
+        saved.write_text(
+            f'<?xml version="1.0" encoding="utf-8"?>\n<Events>{body}</Events>',
+            encoding='utf-8')
+        events, log_type = auto_parse(str(saved))
+        assert log_type == 'windows'
+        assert len(events) == 5
+
+    def test_utf16_export_with_bom(self, fixture_path, tmp_path):
+        """wevtutil redirected through PowerShell writes UTF-16 with a BOM."""
+        with open(fixture_path('windows_security.xml'), encoding='utf-8') as f:
+            body = f.read()
+        wide = tmp_path / 'wide.xml'
+        wide.write_text(body, encoding='utf-16')
+        events, log_type = auto_parse(str(wide))
+        assert log_type == 'windows'
+        assert len(events) == 5
+
+    @pytest.mark.parametrize('raw, expected', [
+        ('<img src=x onerror=alert(1)>', 'unknown'),
+        ('not-an-ip', 'unknown'),
+        ('2001:DB8::1', '2001:db8::1'),
+        (' 198.51.100.77 ', '198.51.100.77'),
+    ])
+    def test_source_address_is_validated(self, tmp_path, raw, expected):
+        """IpAddress is free text that reaches the dashboard; only addresses pass."""
+        from xml.sax.saxutils import escape
+        log = tmp_path / 'ip.xml'
+        log.write_text(
+            '<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">'
+            '<System><EventID>4625</EventID>'
+            '<TimeCreated SystemTime="2025-01-10T02:15:00Z"/>'
+            '<Computer>DC01</Computer></System><EventData>'
+            '<Data Name="TargetUserName">administrator</Data>'
+            f'<Data Name="IpAddress">{escape(raw)}</Data>'
+            '</EventData></Event>', encoding='utf-8')
+        events = parse_windows_log(str(log))
+        assert [e['ip'] for e in events] == [expected]
+
 
 class TestOffHoursAccountCreation:
     def test_fires_at_night(self):

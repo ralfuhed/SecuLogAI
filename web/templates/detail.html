@@ -614,7 +614,8 @@
             data-ip="{{ r.ip }}"
             data-sev="{{ r.worst_sev }}"
             data-threatened="{{ 'true' if r.threats > 0 else 'false' }}"
-            onclick="window.location='/detail?result_id={{ detail.result_id }}&type=ip&value={{ r.ip }}'">
+            data-href="{{ url_for('detail', result_id=detail.result_id, type='ip', value=r.ip) }}"
+            onclick="window.location = this.dataset.href">
 
           <td class="py-3 pr-4">
             <div class="flex items-center gap-2">
