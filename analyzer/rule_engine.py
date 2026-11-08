@@ -13,7 +13,7 @@ Severity scale: LOW → MEDIUM → HIGH → CRITICAL
 
 from collections import defaultdict
 from datetime import timedelta
-from urllib.parse import unquote
+from urllib.parse import unquote, unquote_plus
 import re
 
 from analyzer.attack_mapping import technique_for
@@ -63,11 +63,17 @@ def _decode(path: str) -> str:
     Attackers encode payloads to slip past naive string matching, and double
     encoding (%2527 -> %27 -> ') is a standard evasion. Two passes is enough
     in practice and bounds the work per request.
+
+    The first pass also reads '+' as a space, as a server does for a query
+    string. Browsers and sqlmap send admin'+OR+'1'='1 that way, and without
+    this the quote-then-keyword patterns never saw the space they need. Only
+    the first pass does it: a %2B there is a literal plus the client meant,
+    and the second pass must not turn it into a space.
     """
     out = path
-    for _ in range(2):
+    for decode in (unquote_plus, unquote):
         try:
-            decoded = unquote(out)
+            decoded = decode(out)
         except Exception:
             break
         if decoded == out:

