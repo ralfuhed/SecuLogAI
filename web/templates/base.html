@@ -12,7 +12,7 @@
 
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
+  <script nonce="{{ csp_nonce }}">
     tailwind.config = {
       theme: {
         extend: {
@@ -43,6 +43,32 @@
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- ── Global JS utilities: in <head> so page scripts can register actions ── -->
+  <script nonce="{{ csp_nonce }}">
+    function copyIP(ip) {
+      navigator.clipboard.writeText(ip).then(() => {
+        const t = document.getElementById('toast');
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2000);
+      });
+    }
+
+    // The CSP forbids inline onclick attributes, so clickable elements carry
+    // data-action="name" and pages register handlers here. Only the innermost
+    // link or button is considered, so a plain link inside a clickable row
+    // follows the link instead of also triggering the row.
+    const actions = {
+      'copy-ip':  el => copyIP(el.dataset.ip),
+      'navigate': el => { window.location = el.dataset.href; },
+    };
+    document.addEventListener('click', e => {
+      const el = e.target.closest('[data-action], a[href], button');
+      if (el && el.dataset.action && actions[el.dataset.action]) {
+        actions[el.dataset.action](el, e);
+      }
+    });
+  </script>
 
   <style>
     /* ── Reset & base ── */
@@ -218,17 +244,6 @@
 
   <!-- ── Global toast ── -->
   <div id="toast">IP copied to clipboard</div>
-
-  <!-- ── Global JS utilities ── -->
-  <script>
-    function copyIP(ip) {
-      navigator.clipboard.writeText(ip).then(() => {
-        const t = document.getElementById('toast');
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2000);
-      });
-    }
-  </script>
 
 </body>
 </html>

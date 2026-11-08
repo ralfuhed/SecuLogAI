@@ -488,7 +488,7 @@
 <!-- ── Contributing events ── -->
 {% if detail.events %}
 <div class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d5">
-  <button id="raw-toggle" onclick="toggleRaw()" class="w-full flex items-center justify-between group">
+  <button id="raw-toggle" data-action="toggle-raw" class="w-full flex items-center justify-between group">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
       // Contributing Events from Affected IPs
       <span class="text-ops-border ml-2">({{ detail.events | length }})</span>
@@ -615,7 +615,7 @@
             data-sev="{{ r.worst_sev }}"
             data-threatened="{{ 'true' if r.threats > 0 else 'false' }}"
             data-href="{{ url_for('detail', result_id=detail.result_id, type='ip', value=r.ip) }}"
-            onclick="window.location = this.dataset.href">
+            data-action="navigate">
 
           <td class="py-3 pr-4">
             <div class="flex items-center gap-2">
@@ -663,8 +663,7 @@
           <td class="py-3 pr-4 text-ops-muted">{{ r.last_seen }}</td>
 
           <td class="py-3">
-            <a href="/detail?result_id={{ detail.result_id }}&type=ip&value={{ r.ip }}"
-               onclick="event.stopPropagation()"
+            <a href="{{ url_for('detail', result_id=detail.result_id, type='ip', value=r.ip) }}"
                class="font-mono text-xs border border-ops-border text-ops-muted
                       hover:border-ops-cyan/50 hover:text-ops-cyan px-2 py-1 rounded
                       transition-all whitespace-nowrap">
@@ -685,7 +684,7 @@
 
 
 <!-- ── Scripts ── -->
-<script>
+<script nonce="{{ csp_nonce }}">
   // ── Animated counters ─────────────────────────────────────────────────────
   document.querySelectorAll('.counter').forEach(el => {
     const target = parseInt(el.dataset.target, 10) || 0;
@@ -845,6 +844,7 @@
     const isHidden = panel.classList.toggle('hidden');
     icon.textContent = isHidden ? '[EXPAND]' : '[COLLAPSE]';
   }
+  actions['toggle-raw'] = () => toggleRaw();
 
   {% elif detail.type == 'all_ips' %}
 

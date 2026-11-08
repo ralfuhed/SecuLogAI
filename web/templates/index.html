@@ -173,7 +173,7 @@
 
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   // Show selected filename in dropzone
   document.getElementById('file-input').addEventListener('change', function () {
     const name = this.files[0]?.name;
