@@ -9,6 +9,13 @@ description: |
   (`?id=1 UNION SELECT ...`). Any parser or field extraction that treats the
   request path as a non-whitespace token will silently drop exactly the lines
   this rule is meant to catch.
+
+  c-uri is the raw request as logged, not decoded, so each keyword pair is
+  listed as sent: with a space, '+' (how browsers and sqlmap encode a space
+  in a query string), %20, and /**/. A bare %27 is not listed: it is just an
+  encoded apostrophe, and O%27Brien is a surname, not an attack.
+  tests/test_signature_precision.py holds this rule to the same benign and
+  attack corpora as the Python rule.
 references:
   - https://attack.mitre.org/techniques/T1190/
 author: ralfuhed
@@ -16,23 +23,57 @@ date: 2026/09/03
 logsource:
   category: webserver
 detection:
+  # A regex, not substrings: 'communion+selection' contains 'union+select'.
+  # UNION must not follow a letter (a digit is fine: 1UNION, /*!50000UNION),
+  # and the gap may be a space, '+', %20 or an inline comment. Written without
+  # lookbehind so it ports to backends that lack it.
+  sql_union:
+    c-uri|re|i: '(^|[^a-z_])union(\s|\+|%20|/\*!?[0-9]*|\*/)+(all(\s|\+|%20|/\*!?[0-9]*|\*/)+)?select'
   sql_keywords:
     c-uri|contains:
-      - 'UNION SELECT'
       - 'OR 1=1'
+      - 'OR+1=1'
+      - 'OR%201=1'
+      - 'OR/**/1=1'
+      - 'AND 1=1'
+      - 'AND+1=1'
+      - 'AND%201=1'
+      - 'AND/**/1=1'
       - "' OR '"
+      - "'+OR+'"
+      - '%27%20OR%20%27'
+      - '%27+OR+%27'
       - 'DROP TABLE'
+      - 'DROP+TABLE'
+      - 'DROP%20TABLE'
+      - 'DROP/**/TABLE'
       - 'INSERT INTO'
+      - 'INSERT+INTO'
+      - 'INSERT%20INTO'
+      - 'INSERT/**/INTO'
       - 'xp_cmdshell'
+      - 'information_schema'
       - 'sleep('
+      - 'sleep%28'
       - 'benchmark('
+      - 'pg_sleep('
       - 'WAITFOR DELAY'
+      - 'WAITFOR+DELAY'
+      - 'WAITFOR%20DELAY'
+      - 'WAITFOR/**/DELAY'
   sql_comment_markers:
     c-uri|contains:
       - "'--"
-      - '%27'
+      - "' --"
+      - "'+--"
+      - '%27--'
+      - '%27%20--'
+      - '%27+--'
+      - "'#"
+      - '%27%23'
       - '%2D%2D'
-  condition: sql_keywords or sql_comment_markers
+      - '/*!'            # MySQL versioned comment: its body runs
+  condition: sql_union or sql_keywords or sql_comment_markers
 fields:
   - src_ip
   - c-uri

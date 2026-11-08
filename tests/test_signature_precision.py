@@ -70,6 +70,14 @@ BENIGN_URLS = [
     "/search?q=update+my+settings",
     "/search?q=what+is+1%2B1",
     "/jobs?q=sales+%26+marketing",
+    # An encoded apostrophe is punctuation, not SQL
+    "/search?q=O%27Brien",
+    "/search?q=don%27t+stop",
+    # Keywords inside longer words, and globs that look like comments
+    "/blog/family-reunion-select-venue",
+    "/search?q=communion+selection",
+    "/static/*/assets/*/main.css",
+    "/assets/**/icons/arrow.svg",
 ]
 
 # Real payloads, including percent-encoded evasions.
@@ -100,6 +108,13 @@ ATTACK_URLS = [
     "/p?id=1+UNION+SELECT+1,2",
     "/p?id=1'+AND+1=1--+",
     "/s?q=<img+src=x+onerror=alert(1)>",
+    # Inline comments standing in for spaces, and MySQL versioned comments
+    "/p?id=1/**/UNION/**/SELECT/**/1",
+    "/p?id=1/*!50000UNION*//*!50000SELECT*/1",
+    "/p?id=1UNION SELECT 1",
+    "/p?id=1'/**/OR/**/1=1--",
+    "/p?id=1;DROP/**/TABLE/**/users",
+    "/p?id=1+UNION+ALL+SELECT+1",
 ]
 
 _SIGNATURES = [('SQLi', _SQLI), ('CmdI', _CMDI), ('XSS', _XSS), ('Traversal', _TRAVERSAL)]
@@ -175,3 +190,43 @@ class TestPrecisionRecallSummary:
 
         assert not false_positives, f'false positives: {false_positives}'
         assert not missed, f'missed attacks: {missed}'
+
+
+class TestSigmaParity:
+    """
+    rules/sigma/web_sql_injection.yml says it mirrors the Python rule. It had
+    drifted: it missed every '+'-encoded attack (#19) and counted a bare %27,
+    an encoded apostrophe, as SQL. Sigma matches the raw, undecoded URI with
+    case-insensitive substrings, so that is how it is evaluated here.
+    """
+
+    @staticmethod
+    def _sigma_selections():
+        import os
+        import yaml
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            'rules', 'sigma', 'web_sql_injection.yml')
+        with open(path, encoding='utf-8') as f:
+            detection = yaml.safe_load(f)['detection']
+        assert detection['condition'] == ' or '.join(k for k in detection if k != 'condition')
+        return [sel for key, sel in detection.items() if key != 'condition']
+
+    def _sigma(self, url):
+        """Every selection is OR-ed; evaluate each the way a Sigma backend would."""
+        import re
+        for sel in self._sigma_selections():
+            ((field, value),) = sel.items()
+            if field == 'c-uri|contains' and any(n.lower() in url.lower() for n in value):
+                return True
+            if field == 'c-uri|re|i' and re.search(value, url, re.IGNORECASE):
+                return True
+            assert field in ('c-uri|contains', 'c-uri|re|i'), f'unhandled modifier {field}'
+        return False
+
+    @pytest.mark.parametrize('url', BENIGN_URLS)
+    def test_sigma_stays_silent_on_benign_urls(self, url):
+        assert not self._sigma(url)
+
+    @pytest.mark.parametrize('url', [u for u in ATTACK_URLS if _SQLI.search(_decode(u))])
+    def test_sigma_catches_every_sqli_the_python_rule_catches(self, url):
+        assert self._sigma(url)

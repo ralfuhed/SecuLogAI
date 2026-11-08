@@ -82,20 +82,26 @@ def _decode(path: str) -> str:
     return out
 
 
+# SQL lets an inline comment stand in for a space, and MySQL runs the body of
+# a versioned comment, so 1/**/UNION/**/SELECT and /*!50000UNION*/SELECT are
+# both live payloads. Between keywords, whitespace or comment delimiters.
+_GAP = r"(?:\s|/\*!?\d*|\*/)+"
+
 # SQL Injection: requires real SQL grammar, not stray punctuation.
 # e.g. /login?user=admin'-- , /products?id=1 UNION SELECT ...
 _SQLI = re.compile(
     r"("
-    r"\bunion\s+(all\s+)?select\b"                  # UNION SELECT
+    # UNION may follow a digit: 1UNION SELECT, /*!50000UNION
+    rf"(?<![a-z_])union{_GAP}(all{_GAP})?select\b"  # UNION SELECT
     r"|\b(select)\b[\s\S]{0,60}?\bfrom\b"           # SELECT ... FROM
-    r"|\binsert\s+into\b|\bdelete\s+from\b"
-    r"|\bdrop\s+(table|database)\b|\btruncate\s+table\b"
+    rf"|\binsert{_GAP}into\b|\bdelete{_GAP}from\b"
+    rf"|\bdrop{_GAP}(table|database)\b|\btruncate{_GAP}table\b"
     r"|\bupdate\b[\s\S]{0,40}?\bset\b"
-    r"|\b(or|and)\b\s*['\"]?[\w.]+['\"]?\s*=\s*['\"]?[\w.]+['\"]?\s*(--|#|/\*|;|$)"
+    rf"|\b(or|and)(?:\b\s*|{_GAP})['\"]?[\w.]+['\"]?\s*=\s*['\"]?[\w.]+['\"]?\s*(--|#|/\*|;|$)"
     r"|['\"]\s*(or|and)\b\s*['\"]?\d"               # ' OR 1  /  ' AND 1
     r"|['\"]\s*(--|#|/\*)"                          # quote immediately closing a comment
     r"|['\"]\s*;\s*\w"                              # quote then statement separator
-    r"|\bsleep\s*\(\s*\d|\bbenchmark\s*\(|\bwaitfor\s+delay\b|\bpg_sleep\s*\("
+    rf"|\bsleep\s*\(\s*\d|\bbenchmark\s*\(|\bwaitfor{_GAP}delay\b|\bpg_sleep\s*\("
     r"|\bxp_cmdshell\b|\binformation_schema\b|\bsysobjects\b"
     r"|\bload_file\s*\(|\binto\s+outfile\b"
     r")",
