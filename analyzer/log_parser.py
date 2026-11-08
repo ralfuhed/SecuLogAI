@@ -10,6 +10,7 @@ Supports:
 
 import re
 import csv
+import ipaddress
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
@@ -226,6 +227,38 @@ def _parse_windows_ts(raw: str) -> datetime:
         return datetime.now()
 
 
+# Event Viewer's "Save as XML" writes an XML declaration and its own <Events>
+# root, where wevtutil writes a bare stream of <Event> elements. Stripping the
+# declaration and wrapping regardless handles both: a nested <Events> root is
+# still valid XML, and the search below is by descendant.
+_XML_DECLARATION = re.compile(r'^\s*<\?xml[^>]*\?>', re.IGNORECASE)
+
+
+def _read_text(filepath: str, limit: int = -1) -> str:
+    """Read a log file, honouring a UTF-16 or UTF-8 byte-order mark."""
+    with open(filepath, 'rb') as f:
+        data = f.read(limit)
+    if data.startswith((b'\xff\xfe', b'\xfe\xff')):
+        return data.decode('utf-16', errors='ignore')
+    return data.decode('utf-8-sig', errors='ignore')
+
+
+def _normalise_windows_ip(raw: str) -> str:
+    """
+    Return a validated source address, 'local', or 'unknown'.
+
+    IpAddress is free text in the event XML, and this value later lands in the
+    dashboard. Anything that does not parse as an address is not passed on.
+    """
+    ip = raw.strip()
+    if ip in ('-', '::1', '127.0.0.1', ''):
+        return 'local'
+    try:
+        return str(ipaddress.ip_address(ip))
+    except ValueError:
+        return 'unknown'
+
+
 def parse_windows_log(filepath: str) -> list[dict]:
     """
     Parse exported Windows Security Event Log XML into event dicts.
@@ -234,12 +267,10 @@ def parse_windows_log(filepath: str) -> list[dict]:
     'failed_login', 4624 becomes 'successful_login', so the existing brute
     force and username-spread rules apply to Windows logs without change.
     """
-    with open(filepath, 'r', errors='ignore', encoding='utf-8') as f:
-        content = f.read()
+    content = _XML_DECLARATION.sub('', _read_text(filepath), count=1)
     if not content.strip():
         return []
 
-    # wevtutil emits a bare stream of <Event> elements with no document root.
     try:
         root = ET.fromstring(f'<Events>{content}</Events>')
     except ET.ParseError:
@@ -272,9 +303,7 @@ def parse_windows_log(filepath: str) -> list[dict]:
         }
 
         # '-' and '::1' both mean "not a meaningful remote source" in 4625.
-        ip = data.get('IpAddress', '').strip()
-        if ip in ('-', '::1', '127.0.0.1', ''):
-            ip = 'local'
+        ip = _normalise_windows_ip(data.get('IpAddress', ''))
 
         raw_logon = data.get('LogonType', '').strip()
         logon_type = int(raw_logon) if raw_logon.isdigit() else None
@@ -306,8 +335,7 @@ def auto_parse(filepath: str) -> tuple[list[dict], str]:
     if filepath.lower().endswith('.csv'):
         return parse_csv_log(filepath), 'auth'
 
-    with open(filepath, 'r', errors='ignore') as f:
-        sample = ''.join(f.readline() for _ in range(5))
+    sample = '\n'.join(_read_text(filepath, limit=16384).splitlines()[:5])
 
     # Check for CSV header row inside the file just in case
     if 'source_ip' in sample and 'event_type' in sample:
