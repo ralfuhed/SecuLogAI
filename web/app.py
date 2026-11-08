@@ -11,6 +11,7 @@ Routes:
 """
 
 import os
+import re
 import json
 import logging
 import secrets
@@ -117,9 +118,16 @@ def _serialise_event(e: dict) -> dict:
     return out
 
 
+# Result ids are generated as uuid4().hex[:12]. /detail takes the id from the
+# query string and it becomes part of a file path, so anything else is refused
+# before it reaches the filesystem: '../../x' would otherwise read any .json the
+# process can reach, and on Windows an absolute path replaces the folder.
+_RESULT_ID = re.compile(r'[0-9a-f]{12}')
+
+
 def _load_results(result_id: str) -> dict | None:
     """Load a saved analysis result from disk. Returns None if not found."""
-    if not result_id:
+    if not result_id or not _RESULT_ID.fullmatch(result_id):
         return None
     path = os.path.join(RESULTS_FOLDER, f'{result_id}.json')
     if not os.path.isfile(path):

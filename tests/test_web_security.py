@@ -166,6 +166,44 @@ class TestLogContentIsNotMarkup:
         assert "copyIP('{{" not in source
 
 
+class TestResultIdIsNotAPath:
+    """
+    /detail reads ?result_id= from the URL and loads <id>.json from disk.
+    It must only ever resolve to a file the analyser itself wrote.
+    """
+
+    @pytest.mark.parametrize('result_id', [
+        '../../package',                 # a real .json at the repo root
+        '..%2F..%2Fpackage',
+        '../../web/../package',
+        'C:/Windows/win',                # absolute path on Windows
+        '/etc/passwd',
+        'ABCDEF123456',                  # right length, wrong alphabet
+        'abcdef12345',                   # too short
+        'abcdef1234567',                 # too long
+    ])
+    def test_rejects_anything_but_a_generated_id(self, client, result_id):
+        response = client.get(f'/detail?result_id={result_id}&type=all_ips')
+        assert response.status_code == 302
+
+    def test_cannot_reach_a_planted_file_outside_the_results_folder(self, client, tmp_path):
+        planted = tmp_path / 'outside.json'
+        planted.write_text('{"log_type": "auth", "threats": [], "events_by_ip": {}}')
+        relative = os.path.relpath(str(tmp_path / 'outside'), app_module.RESULTS_FOLDER)
+        response = client.get('/detail', query_string={
+            'result_id': relative.replace(os.sep, '/'), 'type': 'all_ips'})
+        assert response.status_code == 302
+
+    def test_still_loads_a_real_result(self, client):
+        content = b'Jan 10 08:15:22 srv sshd[1]: Failed password for root from 10.0.0.1 port 22 ssh2\n'
+        client.post('/analyze', data={'logfile': (io.BytesIO(content), 'auth.log')},
+                    content_type='multipart/form-data')
+        with client.session_transaction() as sess:
+            result_id = sess['result_id']
+        response = client.get(f'/detail?result_id={result_id}&type=all_ips')
+        assert response.status_code == 200
+
+
 class TestContentSecurityPolicy:
     """
     The backstop behind escaping: even a value that reaches the page as markup
