@@ -17,7 +17,7 @@ import secrets
 import uuid
 import sys
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, g, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.utils import secure_filename
 
 # Add parent directory to path so we can import the 'analyzer' package
@@ -49,6 +49,45 @@ app = Flask(__name__)
 # result id. Set SECULOG_SECRET_KEY to keep sessions across restarts.
 app.secret_key = os.environ.get('SECULOG_SECRET_KEY') or secrets.token_hex(32)
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_BYTES
+
+# Every page renders text out of hostile logs. Escaping is the first line of
+# defence; this policy is the second, so a value that slips past escaping still
+# cannot run. Inline <script> blocks carry a per-request nonce, and inline event
+# handlers are not used at all (pages dispatch data-action clicks instead).
+# Tailwind's CDN build injects <style> at runtime, hence 'unsafe-inline' for
+# styles only; styles cannot execute script.
+CSP_TEMPLATE = '; '.join([
+    "default-src 'self'",
+    "script-src 'self' 'nonce-{nonce}' https://cdn.tailwindcss.com "
+    "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src https://fonts.gstatic.com",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
+
+
+@app.before_request
+def _issue_csp_nonce():
+    g.csp_nonce = secrets.token_urlsafe(16)
+
+
+@app.context_processor
+def _expose_csp_nonce():
+    return {'csp_nonce': g.get('csp_nonce', '')}
+
+
+@app.after_request
+def _set_security_headers(response):
+    if 'csp_nonce' in g:
+        response.headers['Content-Security-Policy'] = CSP_TEMPLATE.format(nonce=g.csp_nonce)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    return response
 
 UPLOAD_FOLDER  = os.path.join(os.path.dirname(__file__), '..', 'data', 'uploads')
 RESULTS_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'data', 'results')

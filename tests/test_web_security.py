@@ -166,6 +166,51 @@ class TestLogContentIsNotMarkup:
         assert "copyIP('{{" not in source
 
 
+class TestContentSecurityPolicy:
+    """
+    The backstop behind escaping: even a value that reaches the page as markup
+    must not be able to run script.
+    """
+
+    TEMPLATE_DIR = os.path.join(os.path.dirname(app_module.__file__), 'templates')
+
+    def _nonce(self, response):
+        policy = response.headers['Content-Security-Policy']
+        return re.search(r"'nonce-([^']+)'", policy).group(1)
+
+    def test_pages_send_a_policy(self, client):
+        policy = client.get('/').headers['Content-Security-Policy']
+        assert "object-src 'none'" in policy
+        assert "frame-ancestors 'none'" in policy
+        script_src = re.search(r'script-src ([^;]+)', policy).group(1)
+        assert "'unsafe-inline'" not in script_src
+        assert "'unsafe-eval'" not in script_src
+
+    def test_every_inline_script_carries_the_request_nonce(self, client):
+        response = client.get('/')
+        nonce = self._nonce(response)
+        tags = re.findall(r'<script\b[^>]*>', response.get_data(as_text=True))
+        inline = [t for t in tags if 'src=' not in t]
+        assert inline, 'expected inline scripts on the index page'
+        assert all(f'nonce="{nonce}"' in t for t in inline), inline
+
+    def test_nonce_changes_per_request(self, client):
+        assert self._nonce(client.get('/')) != self._nonce(client.get('/'))
+
+    def test_templates_use_no_inline_event_handlers(self):
+        """A nonce does not cover onclick= attributes; the policy would block them."""
+        offenders = []
+        for name in os.listdir(self.TEMPLATE_DIR):
+            with open(os.path.join(self.TEMPLATE_DIR, name), encoding='utf-8') as f:
+                for lineno, line in enumerate(f, 1):
+                    if re.search(r'\son[a-z]+\s*=\s*["\']', line):
+                        offenders.append(f'{name}:{lineno}')
+        assert offenders == []
+
+    def test_sets_nosniff(self, client):
+        assert client.get('/').headers['X-Content-Type-Options'] == 'nosniff'
+
+
 class TestServerDefaults:
     def test_debug_is_off_unless_requested(self, monkeypatch):
         monkeypatch.delenv('SECULOG_DEBUG', raising=False)

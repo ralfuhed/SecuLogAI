@@ -35,7 +35,7 @@
   <!-- EVENTS PARSED → opens & scrolls to raw log -->
   <div class="bracket-card bg-ops-card border border-ops-border rounded-xl p-5
               fade-up d1 cursor-pointer group hover:border-ops-cyan/30 transition-colors"
-       onclick="openAndScrollRaw()" title="View raw event log">
+       data-action="open-raw" title="View raw event log">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2
                 flex items-center justify-between">
       EVENTS PARSED
@@ -63,7 +63,7 @@
               fade-up d3 cursor-pointer group
               {{ 'hover:border-ops-amber/30' if results.total_threats > 0 else 'hover:border-ops-green/30' }}
               transition-colors"
-       onclick="scrollToThreats('ALL')" title="View all threats">
+       data-action="scroll-threats" data-filter="ALL" title="View all threats">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2
                 flex items-center justify-between">
       THREATS FOUND
@@ -80,7 +80,7 @@
               fade-up d4 cursor-pointer group
               {{ 'hover:border-ops-red/30' if results.critical_count > 0 else '' }}
               transition-colors"
-       onclick="scrollToThreats('CRITICAL')" title="Filter critical threats">
+       data-action="scroll-threats" data-filter="CRITICAL" title="Filter critical threats">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-2
                 flex items-center justify-between">
       CRITICAL
@@ -95,7 +95,7 @@
   {% if results.has_ground_truth %}
   <div class="bracket-card bg-ops-card border border-ops-green/30 rounded-xl p-5 fade-up d5
               cursor-pointer group hover:border-ops-green/50 transition-colors"
-       onclick="scrollToThreats('ALL')" title="View all detected threats">
+       data-action="scroll-threats" data-filter="ALL" title="View all detected threats">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-1
                 flex items-center justify-between">
       DETECTION RATE
@@ -212,7 +212,7 @@
             data-sev="{{ t.severity }}"
             data-ml="{{ 'true' if 'ML' in t.threat_type else 'false' }}"
             data-search="{{ (t.ip ~ ' ' ~ t.threat_type ~ ' ' ~ t.evidence) | lower }}"
-            onclick="openModal({{ loop.index0 }})">
+            data-action="open-modal" data-idx="{{ loop.index0 }}">
 
           <td class="py-3 pr-4">
             <span class="badge badge-{{ t.severity | lower }}">{{ t.severity }}</span>
@@ -224,7 +224,7 @@
           <td class="py-3 pr-4 whitespace-nowrap">
             {% if t.technique %}
               <a href="https://attack.mitre.org/techniques/{{ t.technique | replace('.', '/') }}/"
-                 target="_blank" rel="noopener" onclick="event.stopPropagation()"
+                 target="_blank" rel="noopener"
                  class="text-ops-purple hover:underline"
                  title="{{ t.technique_name }} ({{ t.tactic }})">{{ t.technique }}</a>
               {% if t.mapping_confidence == 'partial' %}
@@ -245,7 +245,7 @@
                            border border-ops-red/40 rounded px-1 py-0.5"
                     title="Source on indicator list as {{ t.ioc_match.category }}">IOC</span>
             {% endif %}
-            <button data-ip="{{ t.ip }}" onclick="event.stopPropagation(); copyIP(this.dataset.ip)"
+            <button data-action="copy-ip" data-ip="{{ t.ip }}"
               class="ml-1.5 text-ops-border hover:text-ops-cyan text-xs transition-colors"
               title="Copy IP">
               ⎘
@@ -259,8 +259,7 @@
 
           <!-- Deep Dive button -->
           <td class="py-3">
-            <a href="/detail?result_id={{ results.result_id }}&type=ip&value={{ t.ip }}"
-               onclick="event.stopPropagation()"
+            <a href="{{ url_for('detail', result_id=results.result_id, type='ip', value=t.ip) }}"
                class="font-mono text-xs border border-ops-border text-ops-muted
                       hover:border-ops-cyan/50 hover:text-ops-cyan px-2 py-1 rounded
                       transition-all whitespace-nowrap">
@@ -296,7 +295,7 @@
 {% if results.raw_events %}
 <div id="raw-events-section" class="bg-ops-card border border-ops-border rounded-xl p-5 fade-up d5">
 
-  <button id="raw-toggle" onclick="toggleRaw()"
+  <button id="raw-toggle" data-action="toggle-raw"
     class="w-full flex items-center justify-between group">
     <div class="font-mono text-xs text-ops-muted uppercase tracking-widest">
       // Raw Event Log
@@ -355,11 +354,11 @@
 
 
 <!-- ── Threat detail side-panel modal ── -->
-<div id="modal-backdrop" class="modal-backdrop" onclick="closeModal()"></div>
+<div id="modal-backdrop" class="modal-backdrop" data-action="close-modal"></div>
 <div id="modal-panel" class="modal-panel">
   <div class="flex items-center justify-between mb-6">
     <span class="font-mono text-xs text-ops-cyan uppercase tracking-widest">// Threat Detail</span>
-    <button onclick="closeModal()" class="font-mono text-xs text-ops-muted hover:text-ops-cyan transition-colors">
+    <button data-action="close-modal" class="font-mono text-xs text-ops-muted hover:text-ops-cyan transition-colors">
       [CLOSE ×]
     </button>
   </div>
@@ -368,7 +367,7 @@
 
 
 <!-- ── Scripts ── -->
-<script>
+<script nonce="{{ csp_nonce }}">
   // Data injected from Flask/Jinja
   const timelineLabels = {{ results.timeline_labels | tojson }};
   const timelineValues = {{ results.timeline_values | tojson }};
@@ -638,7 +637,7 @@
             <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Source IP</div>
             <div class="font-mono text-sm text-ops-cyan flex items-center gap-2">
               ${esc(t.ip)}
-              <button onclick="copyIP(allThreats[${idx}].ip)"
+              <button data-action="copy-ip" data-ip="${esc(t.ip)}"
                 class="text-ops-border hover:text-ops-cyan text-xs transition-colors" title="Copy">⎘</button>
             </div>
           </div>
@@ -696,6 +695,14 @@
     const el = document.getElementById('raw-events-section');
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  Object.assign(actions, {
+    'open-modal':     el => openModal(Number(el.dataset.idx)),
+    'close-modal':    () => closeModal(),
+    'toggle-raw':     () => toggleRaw(),
+    'open-raw':       () => openAndScrollRaw(),
+    'scroll-threats': el => scrollToThreats(el.dataset.filter),
+  });
 </script>
 
 {% endblock %}
