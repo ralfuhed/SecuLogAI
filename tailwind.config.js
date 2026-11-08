@@ -3,7 +3,10 @@
 // into web/static/tailwind.css; run `npm run build:css` after changing classes
 // in a template. CI fails if the committed file is out of date.
 module.exports = {
-  content: ['./web/templates/**/*.html', './web/**/*.py'],
+  // Templates only. Scanning Python too picked up ordinary words in comments
+  // ("container", "block") as class names, so an unrelated comment edit in
+  // app.py changed the build and failed the stale-stylesheet check in CI.
+  content: ['./web/templates/**/*.html'],
   theme: {
     extend: {
       fontFamily: {
