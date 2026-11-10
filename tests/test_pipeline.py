@@ -159,6 +159,39 @@ class TestMLPrecision:
             assert t['timestamp'] == first_seen[t['ip']]
 
 
+class TestDemoBadges:
+    """
+    The quick-demo cards on the upload page advertise each demo's severities.
+    They were hand-written and had drifted on three of four cards (threat-intel
+    escalation, and ML alerts that never show because rules already flag the
+    same IPs). The counts now live in DEMO_BADGES and are checked here.
+    """
+
+    SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+
+    @pytest.mark.parametrize('sample, generator, hint', [
+        ('auth', 'gen_auth_log', 'auth'),
+        ('web', 'gen_web_log', 'web'),
+        ('windows', 'gen_windows_log', 'windows'),
+        ('csv', None, 'csv'),
+    ])
+    def test_card_matches_what_the_demo_produces(self, tmp_path, sample, generator, hint):
+        import generate_sample_logs
+        from web.app import DEMO_BADGES, run_analysis
+        if generator:
+            random.seed(42)
+            path = str(tmp_path / f'{sample}.log')
+            getattr(generate_sample_logs, generator)(path)
+        else:
+            path = os.path.join(REPO_ROOT, 'data', 'ssh_anomaly_dataset.csv')
+
+        counts = {}
+        for t in run_analysis(path, hint)['threats']:
+            counts[t['severity']] = counts.get(t['severity'], 0) + 1
+        actual = sorted(counts.items(), key=lambda kv: self.SEVERITY_ORDER.index(kv[0]))
+        assert DEMO_BADGES[sample] == actual
+
+
 class TestCommandLineInterface:
     def test_analyze_command_runs_clean(self, generated_auth_log):
         result = subprocess.run(
