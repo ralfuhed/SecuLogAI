@@ -102,6 +102,35 @@ class TestEnrichment:
         assert enrich_threats([], load_iocs(ioc_file)) == []
 
 
+class TestAddressSpellings:
+    """
+    Matching compared strings, so the same address written another way, in
+    the log or in the indicator list, was not recognised as listed.
+    """
+
+    @pytest.fixture
+    def iocs(self, tmp_path):
+        path = tmp_path / 'v6.txt'
+        path.write_text('2001:DB8::99   spray   2026-08-21\n198.51.100.7   brute\n')
+        return load_iocs(str(path))
+
+    @pytest.mark.parametrize('ip', [
+        '2001:db8::99',               # how sshd and nginx write it
+        '2001:DB8::99',
+        '2001:db8:0:0:0:0:0:99',      # uncompressed
+    ])
+    def test_ipv6_matches_whatever_the_spelling(self, iocs, ip):
+        assert 'ioc_match' in enrich_threats([_threat(ip)], iocs)[0]
+
+    def test_ipv4_mapped_source_matches_ipv4_indicator(self, iocs):
+        """Dual-stack servers log IPv4 clients as ::ffff:a.b.c.d."""
+        assert 'ioc_match' in enrich_threats([_threat('::ffff:198.51.100.7')], iocs)[0]
+
+    def test_non_addresses_still_find_nothing(self, iocs):
+        for ip in ('local', 'unknown', ''):
+            assert 'ioc_match' not in enrich_threats([_threat(ip)], iocs)[0]
+
+
 class TestPipelineIntegration:
     @pytest.fixture
     def generated_auth_log(self, tmp_path):

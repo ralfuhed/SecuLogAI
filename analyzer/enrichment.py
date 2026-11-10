@@ -24,6 +24,23 @@ DEFAULT_IOC_PATH = os.path.join(
 _ESCALATION = {'LOW': 'MEDIUM', 'MEDIUM': 'HIGH', 'HIGH': 'CRITICAL', 'CRITICAL': 'CRITICAL'}
 
 
+def _canonical(ip: str) -> str:
+    """
+    One spelling per address, so lookups compare addresses rather than text.
+
+    2001:DB8::99 and 2001:db8:0:0:0:0:0:99 are the same host, and dual-stack
+    servers log IPv4 clients as ::ffff:198.51.100.7, which an IPv4 indicator
+    would otherwise never match. Anything that is not an address is returned
+    unchanged, so it simply finds no match.
+    """
+    try:
+        addr = ipaddress.ip_address(str(ip).strip())
+    except ValueError:
+        return ip
+    mapped = getattr(addr, 'ipv4_mapped', None)
+    return str(mapped or addr)
+
+
 def load_iocs(path: str = None) -> dict:
     """
     Load indicators from a flat file.
@@ -51,7 +68,7 @@ def load_iocs(path: str = None) -> dict:
                 ipaddress.ip_address(parts[0])
             except ValueError:
                 continue    # not an IP; skip rather than fail the whole load
-            iocs[parts[0]] = {
+            iocs[_canonical(parts[0])] = {
                 'category':   parts[1] if len(parts) > 1 else 'unknown',
                 'first_seen': parts[2] if len(parts) > 2 else '',
             }
@@ -71,7 +88,7 @@ def enrich_threats(threats: list[dict], iocs: dict = None) -> list[dict]:
 
     enriched = []
     for threat in threats:
-        hit = iocs.get(threat.get('ip'))
+        hit = iocs.get(_canonical(threat.get('ip', '')))
         if not hit:
             enriched.append(threat)
             continue
