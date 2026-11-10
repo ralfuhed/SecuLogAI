@@ -120,7 +120,9 @@ def print_threats(threats):
             print(f"    ATT&CK    : {attck}")
         if t.get('ioc_match'):
             print(f"    {colorize('THREAT INTEL', RED)}: source listed as "
-                  f"{safe(t['ioc_match']['category'])}")
+                  f"{safe(t['ioc_match']['category'])}"
+                  + (f" (in range {safe(t['ioc_match']['range'])})"
+                     if t['ioc_match'].get('range') else ''))
         print(f"    Evidence  : {safe(t['evidence'])}")
         print(f"    First seen: {ts}")
         if i < len(threats):

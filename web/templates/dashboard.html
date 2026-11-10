@@ -630,6 +630,7 @@
         <div>
           <div class="font-mono text-xs text-ops-muted uppercase tracking-wider mb-1">Threat Intelligence</div>
           <div class="font-mono text-sm text-ops-red">Source listed as ${esc(t.ioc_match.category)}${
+            t.ioc_match.range ? ` (in range ${esc(t.ioc_match.range)})` : ''}${
             t.ioc_match.first_seen ? `, first seen ${esc(t.ioc_match.first_seen)}` : ''}</div>
         </div>` : ''}
         <div class="grid grid-cols-2 gap-4">
