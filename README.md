@@ -126,6 +126,10 @@ python cli.py analyze data/sample_auth.log
 
 # Analyze web server logs
 python cli.py analyze data/sample_access.log --type web
+
+# Findings as a report for a SIEM, ticket or script (progress goes to stderr)
+python cli.py analyze data/sample_access.log --format json > findings.json
+python cli.py analyze data/sample_access.log --format csv  > findings.csv
 ```
 
 #### Option 2: Web Dashboard (Interactive)
@@ -140,7 +144,12 @@ python run_web.py
 Then:
 1. Upload a log file or use the built-in samples
 2. View the threat dashboard with charts and drill-down analysis
-3. Export results as JSON
+3. Export the findings with **[↓ JSON]** or **[↓ CSV]** in the dashboard header
+
+Both formats carry each finding's severity, ATT&CK technique, threat-intel
+match and evidence. Evidence quotes the analysed log, so CSV cells that would
+start a spreadsheet formula (`=`, `+`, `-`, `@`) are prefixed with `'` and open
+as text, never as a formula.
 
 ## How It Works
 
@@ -531,6 +540,7 @@ Done:
 - [x] Sigma rule equivalents for the core detections
 - [x] Offline threat-intel enrichment against a local indicator list
 - [x] Test suite and CI on Python 3.11 / 3.12
+- [x] JSON / CSV export of findings, from the dashboard and the CLI
 
 Next:
 

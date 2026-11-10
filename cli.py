@@ -12,6 +12,7 @@ Examples:
 """
 
 import argparse
+import contextlib
 import re
 import sys
 import os
@@ -23,6 +24,7 @@ from analyzer.feature_extractor import extract_auth_features, extract_web_featur
 from analyzer.rule_engine      import run_all_rules
 from analyzer.ml_detector      import detect_anomalies
 from analyzer.enrichment       import enrich_threats
+from analyzer.report           import build_report, to_csv, to_json
 
 # ── Terminal colour codes (ANSI escape sequences) ─────────────────────────────
 # These make the terminal output colour-coded without any extra library.
@@ -134,31 +136,63 @@ def cmd_analyze(args):
     2. Extract numerical features per IP
     3. Run rule-based detection
     4. Run ML anomaly detection
-    5. Merge and display results
+    5. Merge and display results, or print a JSON / CSV report
+
+    With --format json or csv, stdout carries only the report, so
+    `cli.py analyze x --format json > report.json` gives valid JSON; the
+    progress lines move to stderr.
     """
     filepath = args.logfile
-    if not os.path.isfile(filepath):
-        print(colorize(f'[ERROR] File not found: {filepath}', RED))
-        sys.exit(1)
+    machine  = args.format != 'text'
+    progress = contextlib.redirect_stdout(sys.stderr) if machine else contextlib.nullcontext()
 
+    with progress:
+        if not os.path.isfile(filepath):
+            print(colorize(f'[ERROR] File not found: {filepath}', RED))
+            sys.exit(1)
+        events, log_type, all_threats = _run_pipeline(filepath, args.type)
+
+    if machine:
+        report = build_report(
+            all_threats, filename=os.path.basename(filepath), log_type=log_type,
+            total_events=len(events), unique_ips=len({e['ip'] for e in events}),
+        )
+        # The CSV already ends lines in CRLF; Windows text-mode stdout would
+        # turn each into CR CR LF, which spreadsheets show as blank rows.
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(newline='')
+        sys.stdout.write(to_json(report) + '\n' if args.format == 'json' else to_csv(report))
+        return
+
+    if not events:
+        print(colorize('\n  [!] No parseable events found. Check the file format.\n', YELLOW))
+        return
+
+    print()
+    print_summary(events, all_threats, log_type, filepath)
+    print_threats(all_threats)
+
+    print(colorize('\n  Tip: run  python run_web.py  for the interactive dashboard.\n', DIM))
+
+
+def _run_pipeline(filepath, type_hint):
+    """Parse, extract features, run rules and ML. Prints progress to stdout."""
     print_header()
     print(f'\n  Analyzing: {filepath}\n')
 
     # ── Step 1: Parse ─────────────────────────────────────────────────────────
     print('  [1/4] Parsing log file...')
-    if args.type == 'auth':
+    if type_hint == 'auth':
         events, log_type = parse_auth_log(filepath), 'auth'
-    elif args.type == 'web':
+    elif type_hint == 'web':
         events, log_type = parse_web_log(filepath), 'web'
-    elif args.type == 'windows':
+    elif type_hint == 'windows':
         events, log_type = parse_windows_log(filepath), 'windows'
     else:
         events, log_type = auto_parse(filepath)   # auto-detect
     print(f'        -> {len(events):,} events parsed ({log_type} log)')
-
     if not events:
-        print(colorize('\n  [!] No parseable events found. Check the file format.\n', YELLOW))
-        sys.exit(0)
+        return events, log_type, []
 
     # ── Step 2: Feature extraction ────────────────────────────────────────────
     print('  [2/4] Extracting features per IP...')
@@ -181,14 +215,7 @@ def cmd_analyze(args):
     # ── Merge results (de-duplicate IPs already caught by rules) ─────────────
     rule_ips   = {t['ip'] for t in rule_threats}
     new_ml     = [t for t in ml_threats if t['ip'] not in rule_ips]
-    all_threats = enrich_threats(rule_threats + new_ml)
-
-    # ── Output ────────────────────────────────────────────────────────────────
-    print()
-    print_summary(events, all_threats, log_type, filepath)
-    print_threats(all_threats)
-
-    print(colorize('\n  Tip: run  python run_web.py  for the interactive dashboard.\n', DIM))
+    return events, log_type, enrich_threats(rule_threats + new_ml)
 
 
 def cmd_generate(_args):
@@ -214,6 +241,8 @@ def main():
     analyze_p.add_argument('logfile', help='Path to the log file')
     analyze_p.add_argument('--type', choices=['auth', 'web', 'windows', 'auto'], default='auto',
                             help='Log type (default: auto-detect)')
+    analyze_p.add_argument('--format', choices=['text', 'json', 'csv'], default='text',
+                           help='text for people (default); json or csv to stdout for tools')
 
     # 'generate' sub-command
     sub.add_parser('generate', help='Generate sample log files for demo')

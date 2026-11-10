@@ -2,6 +2,14 @@
 {% block title %}SecuLog AI, Threat Report{% endblock %}
 
 {% block nav_extra %}
+{% for fmt in ('json', 'csv') %}
+<a href="{{ url_for('export', format=fmt, result_id=results.result_id) }}" download
+   class="font-mono text-xs border border-ops-border text-ops-muted
+          hover:border-ops-cyan/40 hover:text-ops-cyan px-3 py-1.5 rounded-lg transition-all"
+   title="Download the findings as {{ fmt | upper }}">
+  [↓ {{ fmt | upper }}]
+</a>
+{% endfor %}
 <a href="/"
    class="font-mono text-xs border border-ops-border text-ops-muted
           hover:border-ops-cyan/40 hover:text-ops-cyan px-3 py-1.5 rounded-lg transition-all">

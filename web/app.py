@@ -18,7 +18,7 @@ import secrets
 import uuid
 import sys
 from datetime import datetime
-from flask import Flask, g, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, Response, g, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.utils import secure_filename
 
 # Add parent directory to path so we can import the 'analyzer' package
@@ -29,6 +29,7 @@ from analyzer.feature_extractor import extract_auth_features, extract_web_featur
 from analyzer.rule_engine       import run_all_rules
 from analyzer.ml_detector       import detect_anomalies, get_ip_scores
 from analyzer.enrichment        import enrich_threats
+from analyzer.report            import build_report, to_csv, to_json
 
 # Uploaded logs are attacker-controlled text by definition, this tool exists to
 # read hostile input. Everything below treats the upload path accordingly.
@@ -148,7 +149,7 @@ def _load_results(result_id: str) -> dict | None:
 
 # ── Analysis pipeline ─────────────────────────────────────────────────────────
 
-def run_analysis(filepath: str, log_type_hint: str = 'auto') -> dict:
+def run_analysis(filepath: str, log_type_hint: str = 'auto', display_name: str = None) -> dict:
     """
     Full pipeline: parse → extract features → rules → ML → return results dict.
     Saves full per-IP / per-hour event data to disk for the detail drill-down page.
@@ -275,7 +276,8 @@ def run_analysis(filepath: str, log_type_hint: str = 'auto') -> dict:
     full_result = {
         'result_id':       result_id,
         'log_type':        log_type,
-        'filename':        os.path.basename(filepath),
+        # Uploads are saved under a unique prefix; show the name the user gave.
+        'filename':        display_name or os.path.basename(filepath),
         'total_events':    len(events),
         'unique_ips':      len({e['ip'] for e in events}),
         'total_threats':   len(all_threats),
@@ -358,7 +360,8 @@ def analyze():
     log.info('Analysing upload %r', filename)
 
     try:
-        results = run_analysis(save_path, request.form.get('log_type', 'auto'))
+        results = run_analysis(save_path, request.form.get('log_type', 'auto'),
+                               display_name=filename)
     finally:
         try:
             os.remove(save_path)
@@ -601,3 +604,31 @@ def api_results():
     if not results:
         return jsonify({'error': 'No results in session'}), 404
     return jsonify(results)
+
+
+@app.route('/export')
+def export():
+    """
+    Download the findings as a report: ?format=json (default) or csv, for the
+    analysis in the session or the one named by ?result_id=.
+    """
+    result_id = request.args.get('result_id') or session.get('result_id')
+    results   = _load_results(result_id)   # refuses anything but a generated id
+    if not results:
+        return jsonify({'error': 'No analysis to export'}), 404
+
+    fmt = request.args.get('format', 'json')
+    if fmt not in ('json', 'csv'):
+        return jsonify({'error': 'format must be json or csv'}), 400
+
+    report = build_report(
+        results['threats'], filename=results['filename'], log_type=results['log_type'],
+        total_events=results['total_events'], unique_ips=results['unique_ips'],
+    )
+    body, mimetype = ((to_json(report), 'application/json') if fmt == 'json'
+                      else (to_csv(report), 'text/csv'))
+    log.info('Exported analysis %s as %s', results['result_id'], fmt)
+    # Named from the validated id only, never from the uploaded filename.
+    return Response(body, mimetype=f'{mimetype}; charset=utf-8', headers={
+        'Content-Disposition': f'attachment; filename="seculog-{results["result_id"]}.{fmt}"',
+    })
