@@ -38,6 +38,54 @@ _AUTH_INVALID = re.compile(
     r'Invalid user (?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+)'
 )
 
+# ── Local privilege events (sudo, su) in the same auth log ───────────────────
+# These carry a user, not a network source, so their events use ip 'local'.
+# Examples:
+#   Jan 10 03:14:22 srv sudo:   deploy : user NOT in sudoers ; TTY=pts/1 ; PWD=/tmp ; USER=root ; COMMAND=/bin/cat /etc/shadow
+#   Jan 10 03:15:01 srv sudo:   bob : 3 incorrect password attempts ; TTY=pts/0 ; PWD=/home/bob ; USER=root ; COMMAND=/bin/bash
+#   Jan 10 03:16:40 srv su[2211]: FAILED SU (to root) bob on pts/0
+#   Jan 10 03:16:40 srv su[2211]: pam_unix(su:auth): authentication failure; logname=bob uid=1001 euid=0 tty=pts/0 ruser=bob rhost=  user=root
+#
+# sudo's per-attempt PAM failure lines are not parsed: sudo also writes the
+# "N incorrect password attempts" summary, and counting both would double up.
+_SYSLOG_PREFIX = r'\b(?P<month>\w+)\s+(?P<day>\d+)\s+(?P<time>\S+)\s+\S+\s+'
+_SUDO_DENIED = re.compile(
+    _SYSLOG_PREFIX +
+    r'sudo(?:\[\d+\])?:\s+(?P<user>\S+)\s+:\s+(?P<reason>user NOT in sudoers|command not allowed)\b'
+)
+_SUDO_BAD_PASSWORD = re.compile(
+    _SYSLOG_PREFIX +
+    r'sudo(?:\[\d+\])?:\s+(?P<user>\S+)\s+:\s+(?P<count>\d+)\s+incorrect password attempts?\b'
+)
+_SU_FAILED = re.compile(
+    _SYSLOG_PREFIX + r'su(?:\[\d+\])?:\s+FAILED SU \(to (?P<target>[^)\s]+)\)\s+(?P<user>\S+)'
+)
+_SU_PAM_FAILED = re.compile(
+    _SYSLOG_PREFIX +
+    r'su(?:\[\d+\])?:\s+pam_unix\(su(?:-l)?:auth\):\s+authentication failure;'
+    r'[^;]*?\bruser=(?P<user>\S+)[^;]*?\buser=(?P<target>\S+)'
+)
+# sudo writes the details as "KEY=value ; KEY=value". COMMAND comes last and
+# may itself contain ';' (sh -c "a; b"), so it runs to the end of the line.
+# Greedy [^;]* then strip(), rather than a lazy match: linear on long values.
+_SUDO_FIELD = re.compile(r'\b(TTY|PWD|USER)=([^;]*)')
+_SUDO_COMMAND = re.compile(r'\bCOMMAND=(.*)$')
+
+
+def _sudo_details(line: str) -> dict:
+    fields = {key.lower(): value.strip() for key, value in _SUDO_FIELD.findall(line)}
+    command = _SUDO_COMMAND.search(line)
+    return {
+        'target_user': fields.get('user', ''),
+        'tty':         fields.get('tty', ''),
+        'command':     command.group(1).strip() if command else '',
+    }
+
+# Event types that describe local privilege use rather than network logins.
+# The per-IP behavioural features skip them; they are not login attempts.
+LOCAL_PRIVILEGE_EVENTS = {'sudo_denied', 'sudo_bad_password', 'su_failure'}
+
+
 # ── Web log pattern ──────────────────────────────────────────────────────────
 # Example: 1.2.3.4 - - [10/Jan/2025:03:14:22 +0000] "GET /path HTTP/1.1" 200 512 "-" "Mozilla"
 #
@@ -89,10 +137,12 @@ def _parse_web_ts(raw):
 
 def parse_auth_log(filepath: str) -> list[dict]:
     """
-    Parse SSH auth log → list of event dicts.
-    Each dict has: type, event, ip, user, timestamp, raw.
+    Parse an SSH auth log → list of event dicts.
+    Each dict has: type, event, ip, user, timestamp, raw. sudo and su events
+    from the same log use ip 'local' and add target_user (and command, tty).
     """
     events = []
+    su_failures_seen = set()
     with open(filepath, 'r', errors='ignore') as f:
         for line in f:
             line = line.strip()
@@ -121,7 +171,37 @@ def parse_auth_log(filepath: str) -> list[dict]:
                                 'ip': m.group('ip'), 'user': m.group('user'),
                                 'timestamp': _parse_auth_ts(m.group('month'), m.group('day'), m.group('time')),
                                 'raw': line})
+                continue
+
+            event = _parse_local_privilege(line)
+            if event:
+                # su can log one failure twice (FAILED SU and its PAM line).
+                if event['event'] == 'su_failure':
+                    key = (event['user'], event['target_user'], event['timestamp'])
+                    if key in su_failures_seen:
+                        continue
+                    su_failures_seen.add(key)
+                events.append(event)
     return events
+
+
+def _parse_local_privilege(line: str) -> dict | None:
+    """A sudo or su event from an auth log line, or None."""
+    def base(m, event, **extra):
+        return {'type': 'auth', 'event': event, 'ip': 'local', 'user': m.group('user'),
+                'timestamp': _parse_auth_ts(m.group('month'), m.group('day'), m.group('time')),
+                'raw': line, **extra}
+
+    m = _SUDO_DENIED.search(line)
+    if m:
+        return base(m, 'sudo_denied', reason=m.group('reason'), **_sudo_details(line))
+    m = _SUDO_BAD_PASSWORD.search(line)
+    if m:
+        return base(m, 'sudo_bad_password', attempts=int(m.group('count')), **_sudo_details(line))
+    m = _SU_FAILED.search(line) or _SU_PAM_FAILED.search(line)
+    if m:
+        return base(m, 'su_failure', target_user=m.group('target'), attempts=1)
+    return None
 
 
 def parse_web_log(filepath: str) -> list[dict]:
@@ -364,7 +444,7 @@ def auto_parse(filepath: str) -> tuple[list[dict], str]:
     if 'schemas.microsoft.com/win/2004/08/events/event' in sample or '<Event' in sample:
         return parse_windows_log(filepath), 'windows'
 
-    if 'sshd[' in sample or 'Failed password' in sample:
+    if any(marker in sample for marker in ('sshd[', 'Failed password', 'sudo:', 'sudo[', ' su[', ' su:')):
         return parse_auth_log(filepath), 'auth'
     elif '"GET ' in sample or 'HTTP/' in sample:
         return parse_web_log(filepath), 'web'

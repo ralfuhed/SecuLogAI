@@ -116,6 +116,26 @@ ATTACK_TECHNIQUES = {
         'note': 'Sub-techniques .002 Domain and .003 Local would be more precise, '
                 'but 4672 alone does not say which.',
     },
+    'Unauthorized Sudo Attempt': {
+        # T1548.003 describes abusing sudo to elevate. A refusal in the log
+        # proves the attempt, not the abuse: sudo said no. The technique is
+        # still the right home, since the behaviour aimed at is exactly that.
+        'technique': 'T1548.003',
+        'technique_name': 'Abuse Elevation Control Mechanism: Sudo and Sudo Caching',
+        'tactic': 'Privilege Escalation',
+        'confidence': 'partial',
+        'note': 'The log records a refused sudo attempt; T1548.003 describes '
+                'elevation that succeeds. Closest fit for the attempt.',
+    },
+    'Local Privilege Password Guessing': {
+        # Repeated wrong passwords for sudo or su is password guessing against
+        # a local account, which T1110.001 covers directly.
+        'technique': 'T1110.001',
+        'technique_name': 'Brute Force: Password Guessing',
+        'tactic': 'Credential Access',
+        'confidence': 'confirmed',
+        'note': '',
+    },
     'Account Lockout': {
         # A lockout is the consequence of repeated failed authentication, so
         # the parent technique is the honest choice, 4740 says an account

@@ -43,6 +43,8 @@ def gen_auth_log(path: str):
       - Normal users (few logins, business hours, success)
       - One brute-force attacker (many rapid failures, odd hours)
       - One credential stuffer (many usernames from one IP)
+      - sudo / su activity: a non-sudoer trying root, a user guessing the
+        root password, and routine admin use that must not alert
     """
     lines   = []
     base_ts = datetime(2025, 1, 10, 8, 0, 0)   # 8 AM on Jan 10 2025
@@ -82,6 +84,23 @@ def gen_auth_log(path: str):
         ts = stuff_ts + timedelta(minutes=i * 3)
         lines.append((ts, fmt_auth(ts, host, f'sshd[{random.randint(1000,9999)}]: '
             f'Failed password for invalid user {user} from {stuffer_ip} port {random.randint(40000,65000)} ssh2')))
+
+    # ── Local privilege activity (sudo / su) ─────────────────────────────────
+    # Fixed values, no random calls, so the logs generated after this one stay
+    # identical. Includes benign use that must not alert.
+    for ts, msg in [
+        # alice: routine admin work, plus one mistyped password
+        (datetime(2025, 1, 10, 9, 5, 0),  'sudo:    alice : TTY=pts/2 ; PWD=/home/alice ; USER=root ; COMMAND=/usr/bin/apt update'),
+        (datetime(2025, 1, 10, 13, 2, 0), 'sudo:    alice : 1 incorrect password attempt ; TTY=pts/2 ; PWD=/home/alice ; USER=root ; COMMAND=/usr/bin/systemctl restart nginx'),
+        # deploy: a service account trying root at night
+        (datetime(2025, 1, 10, 2, 41, 0), 'sudo:   deploy : user NOT in sudoers ; TTY=pts/1 ; PWD=/var/www ; USER=root ; COMMAND=/bin/cat /etc/shadow'),
+        (datetime(2025, 1, 10, 2, 41, 30), 'sudo:   deploy : user NOT in sudoers ; TTY=pts/1 ; PWD=/var/www ; USER=root ; COMMAND=/bin/bash'),
+        # bob: guessing his way to root with sudo, then su
+        (datetime(2025, 1, 10, 3, 30, 0), 'sudo:      bob : 3 incorrect password attempts ; TTY=pts/0 ; PWD=/home/bob ; USER=root ; COMMAND=/bin/bash'),
+        (datetime(2025, 1, 10, 3, 31, 10), 'su[2211]: FAILED SU (to root) bob on pts/0'),
+        (datetime(2025, 1, 10, 3, 32, 25), 'su[2214]: FAILED SU (to root) bob on pts/0'),
+    ]:
+        lines.append((ts, fmt_auth(ts, host, msg)))
 
     # Sort chronologically and write
     lines.sort(key=lambda x: x[0])

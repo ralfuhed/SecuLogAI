@@ -296,3 +296,57 @@ class TestHostileLineShapes:
         events = parse_web_log(str(log))
         assert len(events) == 1
         assert events[0]['path'] == ''
+
+
+class TestLocalPrivilegeEvents:
+    """sudo and su in auth.log: parsed as user events with ip 'local'."""
+
+    LINES = [
+        'Jan 10 03:14:22 srv sudo:   deploy : user NOT in sudoers ; TTY=pts/1 ; PWD=/tmp ; USER=root ; COMMAND=/bin/cat /etc/shadow',
+        'Jan 10 03:14:50 srv sudo[812]:   deploy : command not allowed ; TTY=pts/1 ; PWD=/tmp ; USER=root ; COMMAND=/bin/sh -c "id; whoami"',
+        'Jan 10 03:15:01 srv sudo:      bob : 3 incorrect password attempts ; TTY=pts/0 ; PWD=/home/bob ; USER=root ; COMMAND=/bin/bash',
+        'Jan 10 03:16:40 srv su[2211]: FAILED SU (to root) bob on pts/0',
+        'Jan 10 03:16:40 srv su[2211]: pam_unix(su:auth): authentication failure; logname=bob uid=1001 euid=0 tty=pts/0 ruser=bob rhost=  user=root',
+        'Jan 10 03:17:05 srv su: pam_unix(su-l:auth): authentication failure; logname=bob uid=1001 euid=0 tty=pts/0 ruser=bob rhost=  user=root',
+        # Not events: a successful sudo, and sudo's per-attempt PAM line,
+        # which the "N incorrect password attempts" summary already covers.
+        'Jan 10 09:05:00 srv sudo:    alice : TTY=pts/2 ; PWD=/home/alice ; USER=root ; COMMAND=/usr/bin/apt update',
+        'Jan 10 09:05:00 srv sudo: pam_unix(sudo:auth): authentication failure; logname=alice uid=1000 euid=0 tty=/dev/pts/2 ruser=alice rhost=  user=alice',
+    ]
+
+    @pytest.fixture
+    def events(self, tmp_path):
+        log = tmp_path / 'auth.log'
+        log.write_text('\n'.join(self.LINES) + '\n')
+        return parse_auth_log(str(log))
+
+    def test_parses_each_kind_once(self, events):
+        assert [e['event'] for e in events] == [
+            'sudo_denied', 'sudo_denied', 'sudo_bad_password', 'su_failure', 'su_failure']
+
+    def test_events_are_local_and_carry_the_user(self, events):
+        assert {e['ip'] for e in events} == {'local'}
+        assert [e['user'] for e in events] == ['deploy', 'deploy', 'bob', 'bob', 'bob']
+        assert all(e['target_user'] == 'root' for e in events)
+
+    def test_sudo_details(self, events):
+        denied, not_allowed, bad = events[:3]
+        assert denied['reason'] == 'user NOT in sudoers'
+        assert denied['command'] == '/bin/cat /etc/shadow'
+        assert not_allowed['command'] == '/bin/sh -c "id; whoami"', 'a ; inside COMMAND is kept'
+        assert bad['attempts'] == 3
+
+    def test_su_failure_logged_twice_counts_once(self, events):
+        """util-linux su writes FAILED SU and a PAM line for the same attempt."""
+        su = [e for e in events if e['event'] == 'su_failure']
+        assert len(su) == 2 and su[0]['timestamp'] != su[1]['timestamp']
+
+    def test_auto_parse_recognises_a_log_starting_with_sudo(self, tmp_path):
+        log = tmp_path / 'sudo_first.log'
+        log.write_text('\n'.join(self.LINES) + '\n')
+        assert auto_parse(str(log))[1] == 'auth'
+
+    def test_sudo_events_are_not_login_features(self, events):
+        """They describe local privilege use, not logins from an address."""
+        from analyzer.feature_extractor import extract_auth_features
+        assert extract_auth_features(events).empty

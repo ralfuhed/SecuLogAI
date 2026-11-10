@@ -35,13 +35,15 @@ the account created at 03:04 to keep the access.
 
 ## Detection Coverage
 
-Ten detections across three log sources. Every one carries its ATT&CK
+Twelve detections across three log sources. Every one carries its ATT&CK
 technique through the CLI, dashboard and JSON export.
 
 | Detection | Log source | Technique | Severity |
 |---|---|---|---|
 | Brute Force Attack | SSH, Windows | `T1110.001` | MEDIUM to CRITICAL |
 | Credential Stuffing | SSH, Windows | `T1110` | HIGH |
+| Unauthorized Sudo Attempt | Linux auth (sudo) | `T1548.003` | HIGH |
+| Local Privilege Password Guessing | Linux auth (sudo, su) | `T1110.001` | HIGH |
 | Off-Hours Account Creation | Windows | `T1136.001` | HIGH |
 | Unexpected Privilege Assignment | Windows | `T1078` | HIGH |
 | Account Lockout | Windows | `T1110` | MEDIUM to HIGH |
@@ -169,6 +171,8 @@ Explicit rules flag known attack signatures:
 |--------|---------|
 | 🔓 Brute Force | ≥5 failed logins in 10-min window |
 | 🔑 Credential Stuffing | ≥4 unique usernames from one IP |
+| 🛂 Unauthorized Sudo | sudo refused: `user NOT in sudoers` / `command not allowed` |
+| 🗝️ Local Password Guessing | ≥5 wrong sudo/su passwords by one user in 10 min (one sudo give-up, 3, stays quiet) |
 | 💉 SQL Injection | SQLi keywords or special chars in URLs |
 | 🚀 Directory Traversal | `../` sequences in request paths |
 | 📜 XSS | `<script>`, `onerror=` in URLs |
@@ -390,6 +394,8 @@ three of the first-draft guesses were wrong and are corrected here.
 |---|---|---|---|---|
 | Brute Force Attack | `T1110.001` | Brute Force: Password Guessing | Credential Access | confirmed |
 | Credential Stuffing | `T1110` | Brute Force | Credential Access | partial |
+| Unauthorized Sudo Attempt | `T1548.003` | Abuse Elevation Control Mechanism: Sudo and Sudo Caching | Privilege Escalation | partial |
+| Local Privilege Password Guessing | `T1110.001` | Brute Force: Password Guessing | Credential Access | confirmed |
 | SQL Injection Attempt | `T1190` | Exploit Public-Facing Application | Initial Access | confirmed |
 | Directory Traversal | `T1190` | Exploit Public-Facing Application | Initial Access | confirmed |
 | XSS Attempt | `T1190` | Exploit Public-Facing Application | Initial Access | partial |
@@ -416,6 +422,9 @@ tool labels them as such instead of presenting seven confident IDs:
   never that it *ran*. Mapping to `T1059` would claim Execution occurred.
 - **Four detections share `T1190`.** That is a real property of the framework,
   not lazy mapping: ATT&CK is deliberately coarse about web exploitation.
+- **Unauthorized Sudo → `T1548.003`, partial.** The log records sudo *refusing*
+  the request; the technique describes elevation that succeeds. The attempt is
+  what the event proves, so the fit is labelled partial.
 
 ML anomalies are explicitly **unmapped**. A statistical outlier is not a named
 adversary behaviour, and inventing a technique for it would be the dishonest

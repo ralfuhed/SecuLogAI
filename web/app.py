@@ -93,7 +93,7 @@ def _set_security_headers(response):
 # what each demo actually produces, threat-intel escalation included, and
 # tests/test_pipeline.py fails if a detection change makes them wrong.
 DEMO_BADGES = {
-    'auth':    [('CRITICAL', 2), ('HIGH', 1)],
+    'auth':    [('CRITICAL', 2), ('HIGH', 3)],
     'web':     [('CRITICAL', 3), ('HIGH', 3)],
     'windows': [('CRITICAL', 4), ('MEDIUM', 1)],
     'csv':     [('CRITICAL', 9)],

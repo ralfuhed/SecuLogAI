@@ -70,8 +70,12 @@ class TestAuthPipeline:
         assert BENIGN_AUTH_IPS.isdisjoint({t['ip'] for t in threats})
 
     def test_features_cover_every_ip(self, generated_auth_log):
+        """Every login source is profiled; sudo / su events have no source IP."""
+        from analyzer.log_parser import LOCAL_PRIVILEGE_EVENTS
         events, _, features, _ = _analyse(generated_auth_log)
-        assert len(features) == len({e['ip'] for e in events})
+        sources = {e['ip'] for e in events if e['event'] not in LOCAL_PRIVILEGE_EVENTS}
+        assert len(features) == len(sources)
+        assert 'local' not in set(features['ip'])
         assert features['failure_rate'].between(0, 1).all()
 
 

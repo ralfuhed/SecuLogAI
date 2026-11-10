@@ -36,6 +36,13 @@ BUSINESS_HOURS_END   = 19     # 19:00
 # names that happen to be in a default. Populate it before real use.
 KNOWN_ADMIN_ACCOUNTS = {'administrator'}
 
+# Local privilege guessing (sudo / su). sudo gives up after three wrong
+# passwords and logs "3 incorrect password attempts", so a threshold of three
+# would alert on every user who mistypes a password three times. Five in ten
+# minutes, the same bar as SSH brute force, needs a second round.
+LOCAL_GUESS_THRESHOLD  = 5
+LOCAL_GUESS_WINDOW_MIN = 10
+
 # ── Attack signatures ────────────────────────────────────────────────────────
 #
 # Design rule for everything below: a single punctuation character is never
@@ -428,6 +435,70 @@ def detect_account_lockouts(events):
     return threats
 
 
+# ── Local privilege rules (sudo / su in auth logs) ───────────────────────────
+
+def detect_unauthorized_sudo(events):
+    """
+    Flag sudo attempts that sudo itself refused: "user NOT in sudoers" or
+    "command not allowed". Routine sudo by an admin is deliberately not
+    flagged, it is noise; a refusal means someone tried to use privilege they
+    were never given, which is worth a look even when it was a mistake.
+    """
+    threats = []
+    by_user = defaultdict(list)
+    for e in events:
+        if e.get('event') == 'sudo_denied':
+            by_user[e.get('user', '?')].append(e)
+
+    for user, hits in by_user.items():
+        hits.sort(key=lambda e: e['timestamp'])
+        example = hits[0].get('command') or 'no command recorded'
+        target  = hits[0].get('target_user') or 'root'
+        threats.append(_threat(
+            'Unauthorized Sudo Attempt', 'HIGH', 'local',
+            f'{len(hits)} sudo attempt(s) by "{user}" refused '
+            f'({hits[0].get("reason", "denied")}) to run as {target}. '
+            f'Example: {example[:80]}',
+            hits[0]['timestamp'], len(hits)
+        ))
+    return threats
+
+
+def detect_local_password_guessing(events):
+    """
+    Flag repeated wrong passwords for sudo or su by one user: someone at a
+    shell guessing their way to root. "N incorrect password attempts" counts
+    as N; each failed su counts as one.
+    """
+    threats = []
+    by_user = defaultdict(list)
+    for e in events:
+        if e.get('event') in ('sudo_bad_password', 'su_failure'):
+            by_user[e.get('user', '?')].append(e)
+
+    window = timedelta(minutes=LOCAL_GUESS_WINDOW_MIN)
+    for user, hits in by_user.items():
+        hits.sort(key=lambda e: e['timestamp'])
+        # Two pointers over the sorted attempts, as in detect_brute_force.
+        start = attempts = 0
+        for end, e in enumerate(hits):
+            attempts += e.get('attempts', 1)
+            while e['timestamp'] - hits[start]['timestamp'] > window:
+                attempts -= hits[start].get('attempts', 1)
+                start += 1
+            if attempts >= LOCAL_GUESS_THRESHOLD:
+                total  = sum(h.get('attempts', 1) for h in hits)
+                tools  = sorted({'sudo' if h['event'] == 'sudo_bad_password' else 'su' for h in hits})
+                threats.append(_threat(
+                    'Local Privilege Password Guessing', 'HIGH', 'local',
+                    f'{attempts} wrong {"/".join(tools)} password(s) by "{user}" within '
+                    f'{LOCAL_GUESS_WINDOW_MIN} min ({total} in total)',
+                    hits[start]['timestamp'], total
+                ))
+                break
+    return threats
+
+
 # ── Master runner ────────────────────────────────────────────────────────────
 
 def run_all_rules(events: list[dict], log_type: str) -> list[dict]:
@@ -436,6 +507,8 @@ def run_all_rules(events: list[dict], log_type: str) -> list[dict]:
     if log_type == 'auth':
         threats += detect_brute_force(events)
         threats += detect_credential_stuffing(events)
+        threats += detect_unauthorized_sudo(events)
+        threats += detect_local_password_guessing(events)
     elif log_type == 'windows':
         # 4625 maps to 'failed_login', so the auth rules apply unchanged.
         threats += detect_brute_force(events)
