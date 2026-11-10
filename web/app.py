@@ -89,6 +89,17 @@ def _set_security_headers(response):
     response.headers['Referrer-Policy'] = 'no-referrer'
     return response
 
+# Severity counts shown on the quick-demo cards, most severe first. They are
+# what each demo actually produces, threat-intel escalation included, and
+# tests/test_pipeline.py fails if a detection change makes them wrong.
+DEMO_BADGES = {
+    'auth':    [('CRITICAL', 2), ('HIGH', 1)],
+    'web':     [('CRITICAL', 3), ('HIGH', 3)],
+    'windows': [('CRITICAL', 4), ('MEDIUM', 1)],
+    'csv':     [('CRITICAL', 9)],
+}
+app.jinja_env.globals['DEMO_BADGES'] = DEMO_BADGES
+
 UPLOAD_FOLDER  = os.path.join(os.path.dirname(__file__), '..', 'data', 'uploads')
 RESULTS_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'data', 'results')
 os.makedirs(UPLOAD_FOLDER,  exist_ok=True)

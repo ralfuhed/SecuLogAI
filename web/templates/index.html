@@ -89,6 +89,13 @@
     <p class="font-mono text-xs text-ops-muted uppercase tracking-widest mb-4">
       // Quick Demo, No Upload Needed
     </p>
+    {# Counts come from DEMO_BADGES in web/app.py, which a test checks against
+       a real run of each demo, so the cards cannot drift from the results. #}
+    {% macro severity_badges(sample) -%}
+      {%- for severity, count in DEMO_BADGES[sample] -%}
+        <span class="badge badge-{{ severity | lower }}">{{ severity }}{% if count > 1 %} &times;{{ count }}{% endif %}</span>
+      {% endfor -%}
+    {%- endmacro %}
     <div class="grid grid-cols-2 gap-3">
 
       <form action="/use-sample" method="post">
@@ -100,9 +107,7 @@
                       group-hover:text-ops-cyan transition-colors">SSH AUTH LOG</div>
           <div class="font-mono text-xs text-ops-muted mb-2">Brute force, credential stuffing</div>
           <div class="flex gap-1 flex-wrap">
-            <span class="badge badge-critical">CRITICAL</span>
-            <span class="badge badge-high">HIGH</span>
-            <span class="badge badge-ml">ML</span>
+            {{ severity_badges('auth') }}
           </div>
         </button>
       </form>
@@ -116,8 +121,7 @@
                       group-hover:text-ops-cyan transition-colors">WEB ACCESS LOG</div>
           <div class="font-mono text-xs text-ops-muted mb-2">SQLi, XSS, traversal, scanner</div>
           <div class="flex gap-1 flex-wrap">
-            <span class="badge badge-high">HIGH ×4</span>
-            <span class="badge badge-ml">ML</span>
+            {{ severity_badges('web') }}
           </div>
         </button>
       </form>
@@ -131,8 +135,7 @@
                       group-hover:text-ops-cyan transition-colors">WINDOWS SECURITY</div>
           <div class="font-mono text-xs text-ops-muted mb-2">Spray, lockout, privilege, persistence</div>
           <div class="flex gap-1 flex-wrap">
-            <span class="badge badge-critical">CRITICAL</span>
-            <span class="badge badge-high">HIGH &times;3</span>
+            {{ severity_badges('windows') }}
           </div>
         </button>
       </form>
@@ -146,7 +149,7 @@
                       group-hover:text-ops-green transition-colors">LABELLED DATASET</div>
           <div class="font-mono text-xs text-ops-muted mb-2">41,825 events, ground-truth labels</div>
           <div class="flex gap-1 flex-wrap">
-            <span class="badge badge-critical">CRITICAL ×9</span>
+            {{ severity_badges('csv') }}
             <span class="badge badge-measured">MEASURED</span>
           </div>
         </button>
