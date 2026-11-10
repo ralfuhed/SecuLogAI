@@ -1,0 +1,34 @@
+title: Unauthorized Sudo Attempt
+id: 8e727b3f-1e58-4de2-93d2-cddae72d3027
+status: experimental
+description: |
+  Detects sudo refusing a request because the user is not in sudoers, or is
+  not allowed that command. Routine sudo by an administrator is deliberately
+  not matched; a refusal means someone tried to use privilege they were never
+  granted. Mirrors detect_unauthorized_sudo() in analyzer/rule_engine.py.
+
+  Mapped as a partial fit: T1548.003 describes sudo abuse that succeeds, and
+  this event proves only the attempt.
+references:
+  - https://attack.mitre.org/techniques/T1548/003/
+author: ralfuhed
+date: 2026/11/10
+logsource:
+  product: linux
+  service: sudo
+detection:
+  refused:
+    message|contains:
+      - 'user NOT in sudoers'
+      - 'command not allowed'
+  condition: refused
+fields:
+  - user
+  - message
+falsepositives:
+  - A new administrator whose sudoers entry has not been deployed yet
+  - A user retrying a command an admin has since restricted
+level: high
+tags:
+  - attack.privilege_escalation
+  - attack.t1548.003

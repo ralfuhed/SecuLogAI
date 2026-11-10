@@ -12,6 +12,8 @@ from datetime import datetime
 import re
 import pandas as pd
 
+from analyzer.log_parser import LOCAL_PRIVILEGE_EVENTS
+
 
 def extract_auth_features(events: list[dict]) -> pd.DataFrame:
     """
@@ -34,6 +36,8 @@ def extract_auth_features(events: list[dict]) -> pd.DataFrame:
     })
 
     for e in events:
+        if e.get('event') in LOCAL_PRIVILEGE_EVENTS:
+            continue    # sudo / su: local privilege use, not a login from an IP
         ip = e['ip']
         ts = e['timestamp']
         d  = ip_data[ip]

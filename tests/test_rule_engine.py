@@ -13,13 +13,16 @@ from datetime import datetime, timedelta
 from analyzer.rule_engine import (
     BRUTE_FORCE_THRESHOLD,
     CREDENTIAL_STUFF_USERS,
+    LOCAL_GUESS_WINDOW_MIN,
     SCAN_404_THRESHOLD,
     detect_brute_force,
     detect_command_injection,
     detect_credential_stuffing,
     detect_directory_traversal,
+    detect_local_password_guessing,
     detect_scanner,
     detect_sql_injection,
+    detect_unauthorized_sudo,
     detect_xss,
     run_all_rules,
 )
@@ -216,3 +219,61 @@ class TestBruteForceScales:
     def test_window_boundary_unchanged(self, auth_events):
         assert detect_brute_force(auth_events(count=5, spacing_seconds=10))
         assert detect_brute_force(auth_events(count=5, spacing_seconds=200)) == []
+
+
+def _local(event, user, minute, **extra):
+    """A sudo / su event as the auth parser produces it."""
+    return {'type': 'auth', 'event': event, 'ip': 'local', 'user': user,
+            'timestamp': datetime(2025, 1, 10, 3, 0) + timedelta(minutes=minute),
+            'raw': '', 'target_user': 'root', **extra}
+
+
+class TestUnauthorizedSudo:
+    def test_refusal_is_flagged_once_per_user(self):
+        events = [_local('sudo_denied', 'deploy', 0, reason='user NOT in sudoers',
+                         command='/bin/cat /etc/shadow'),
+                  _local('sudo_denied', 'deploy', 1, reason='user NOT in sudoers', command='/bin/bash')]
+        threats = detect_unauthorized_sudo(events)
+        assert len(threats) == 1
+        t = threats[0]
+        assert (t['threat_type'], t['severity'], t['count']) == ('Unauthorized Sudo Attempt', 'HIGH', 2)
+        assert '/bin/cat /etc/shadow' in t['evidence'] and t['technique'] == 'T1548.003'
+
+    def test_routine_sudo_is_not_an_event_at_all(self):
+        assert detect_unauthorized_sudo([]) == []
+
+
+class TestLocalPasswordGuessing:
+    def test_two_sudo_give_ups_in_the_window_alert(self):
+        events = [_local('sudo_bad_password', 'bob', 0, attempts=3),
+                  _local('sudo_bad_password', 'bob', 2, attempts=3)]
+        threats = detect_local_password_guessing(events)
+        assert len(threats) == 1 and threats[0]['technique'] == 'T1110.001'
+
+    def test_sudo_and_su_failures_add_up(self):
+        events = [_local('sudo_bad_password', 'eve', 0, attempts=3),
+                  _local('su_failure', 'eve', 2, attempts=1),
+                  _local('su_failure', 'eve', 3, attempts=1)]
+        assert 'su/sudo' in detect_local_password_guessing(events)[0]['evidence']
+
+    def test_one_sudo_give_up_is_a_typo_not_an_attack(self):
+        """sudo stops after three wrong passwords; three alone must stay quiet."""
+        events = [_local('sudo_bad_password', 'alice', 0, attempts=3)]
+        assert detect_local_password_guessing(events) == []
+
+    def test_failures_spread_beyond_the_window_stay_quiet(self):
+        step = LOCAL_GUESS_WINDOW_MIN + 1
+        events = [_local('sudo_bad_password', 'carol', i * step, attempts=2) for i in range(4)]
+        assert detect_local_password_guessing(events) == []
+
+    def test_users_are_counted_separately(self):
+        events = [_local('su_failure', user, i, attempts=1)
+                  for i, user in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]
+        assert detect_local_password_guessing(events) == []
+
+    def test_runs_for_auth_logs(self):
+        events = [_local('sudo_bad_password', 'bob', 0, attempts=3),
+                  _local('sudo_bad_password', 'bob', 1, attempts=3),
+                  _local('sudo_denied', 'deploy', 2, reason='user NOT in sudoers', command='/bin/sh')]
+        types = {t['threat_type'] for t in run_all_rules(events, 'auth')}
+        assert types == {'Local Privilege Password Guessing', 'Unauthorized Sudo Attempt'}
