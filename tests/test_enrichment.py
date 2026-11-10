@@ -131,6 +131,51 @@ class TestAddressSpellings:
             assert 'ioc_match' not in enrich_threats([_threat(ip)], iocs)[0]
 
 
+class TestRanges:
+    """Threat feeds publish CIDR blocks; those lines used to be skipped."""
+
+    @pytest.fixture
+    def iocs(self, tmp_path):
+        path = tmp_path / 'ranges.txt'
+        path.write_text(
+            '198.51.100.0/24    scanner-range  2026-09-01\n'
+            '198.51.100.64/26   botnet-subnet  2026-09-15\n'
+            '198.51.100.70      c2-server      2026-10-01\n'
+            '10.20.30.40/16     sloppy-host-bits\n'     # host bits set: normalised
+            '2001:db8:abcd::/48 v6-range\n'
+            '0.0.0.0/0          everything\n'           # implausibly wide: refused
+            '2001::/16          too-wide-v6\n'
+            '198.51.100.0/33    malformed\n'
+        )
+        return load_iocs(str(path))
+
+    def test_loads_ranges_and_refuses_bad_ones(self, iocs):
+        ranges = sorted(k for k in iocs if '/' in k)
+        assert ranges == ['10.20.0.0/16', '198.51.100.0/24', '198.51.100.64/26',
+                          '2001:db8:abcd::/48']
+
+    @pytest.mark.parametrize('ip, category', [
+        ('198.51.100.5', 'scanner-range'),       # only the /24 holds it
+        ('198.51.100.65', 'botnet-subnet'),      # the narrower /26 wins
+        ('198.51.100.70', 'c2-server'),          # an exact address beats any range
+        ('10.20.99.1', 'sloppy-host-bits'),
+        ('2001:db8:abcd:1::9', 'v6-range'),
+        ('::ffff:198.51.100.5', 'scanner-range'),  # IPv4-mapped still lands in range
+    ])
+    def test_address_in_a_listed_range_matches(self, iocs, ip, category):
+        hit = enrich_threats([_threat(ip)], iocs)[0]
+        assert hit['ioc_match']['category'] == category
+
+    def test_range_match_says_so_in_the_evidence(self, iocs):
+        hit = enrich_threats([_threat('198.51.100.5')], iocs)[0]
+        assert 'in listed range 198.51.100.0/24' in hit['evidence']
+        assert hit['severity'] == 'CRITICAL'
+
+    @pytest.mark.parametrize('ip', ['198.51.101.1', '203.0.113.9', '2001:db8:abce::1', 'local'])
+    def test_address_outside_every_range_is_untouched(self, iocs, ip):
+        assert 'ioc_match' not in enrich_threats([_threat(ip)], iocs)[0]
+
+
 class TestPipelineIntegration:
     @pytest.fixture
     def generated_auth_log(self, tmp_path):

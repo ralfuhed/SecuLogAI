@@ -45,13 +45,16 @@ def load_iocs(path: str = None) -> dict:
     """
     Load indicators from a flat file.
 
-    Format is one indicator per line, whitespace separated, '#' for comments:
+    Format is one indicator per line, whitespace separated, '#' for comments.
+    An indicator is an address or a CIDR range, as threat feeds publish both:
 
-        198.51.100.77   spray-source   2026-08-14
+        198.51.100.77     spray-source   2026-08-14
+        203.0.113.0/24    scanner-range  2026-09-01
 
-    Returns {ip: {'category': str, 'first_seen': str}}. A missing file is not
-    an error, enrichment is optional, and the tool must still analyse logs
-    without an indicator list.
+    Returns {indicator: {'category': str, 'first_seen': str}}, where a range
+    is keyed by its normalised network ('203.0.113.0/24') and also carries
+    'range'. A missing file is not an error, enrichment is optional, and the
+    tool must still analyse logs without an indicator list.
     """
     path = path or DEFAULT_IOC_PATH
     iocs = {}
@@ -64,15 +67,53 @@ def load_iocs(path: str = None) -> dict:
             if not line:
                 continue
             parts = line.split()
-            try:
-                ipaddress.ip_address(parts[0])
-            except ValueError:
-                continue    # not an IP; skip rather than fail the whole load
-            iocs[_canonical(parts[0])] = {
+            entry = {
                 'category':   parts[1] if len(parts) > 1 else 'unknown',
                 'first_seen': parts[2] if len(parts) > 2 else '',
             }
+            if '/' not in parts[0]:
+                try:
+                    ipaddress.ip_address(parts[0])
+                except ValueError:
+                    continue    # not an IP; skip rather than fail the whole load
+                iocs[_canonical(parts[0])] = entry
+                continue
+            network = _parse_range(parts[0])
+            if network is not None:
+                iocs[str(network)] = {**entry, 'range': str(network)}
     return iocs
+
+
+# A typo or a sloppy feed line such as 0.0.0.0/0 would otherwise mark every
+# source as known-bad and escalate every alert in the log. Ranges broader than
+# these are refused; real feeds list far narrower blocks.
+_MIN_PREFIX = {4: 8, 6: 32}
+
+
+def _parse_range(text: str):
+    """A CIDR range as an ip_network, or None if malformed or implausibly wide."""
+    try:
+        network = ipaddress.ip_network(text, strict=False)   # 10.1.2.3/24 -> 10.1.2.0/24
+    except ValueError:
+        return None
+    if network.prefixlen < _MIN_PREFIX[network.version]:
+        return None
+    return network
+
+
+def _lookup(iocs: dict, networks: list, ip: str):
+    """Exact address first, then the most specific listed range holding it."""
+    canonical = _canonical(ip)
+    if canonical in iocs:
+        return iocs[canonical]
+    try:
+        addr = ipaddress.ip_address(canonical)
+    except ValueError:
+        return None
+    holding = [n for n in networks if n.version == addr.version and addr in n]
+    if not holding:
+        return None
+    return iocs[str(max(holding, key=lambda n: n.prefixlen))]
 
 
 def enrich_threats(threats: list[dict], iocs: dict = None) -> list[dict]:
@@ -86,9 +127,11 @@ def enrich_threats(threats: list[dict], iocs: dict = None) -> list[dict]:
     if not iocs:
         return threats
 
+    networks = [n for n in (_parse_range(k) for k in iocs if '/' in k) if n is not None]
+
     enriched = []
     for threat in threats:
-        hit = iocs.get(_canonical(threat.get('ip', '')))
+        hit = _lookup(iocs, networks, threat.get('ip', ''))
         if not hit:
             enriched.append(threat)
             continue
@@ -96,9 +139,10 @@ def enrich_threats(threats: list[dict], iocs: dict = None) -> list[dict]:
         annotated = dict(threat)
         annotated['ioc_match'] = hit
         annotated['severity'] = _ESCALATION.get(threat['severity'], threat['severity'])
-        seen = f", first seen {hit['first_seen']}" if hit['first_seen'] else ''
+        seen  = f", first seen {hit['first_seen']}" if hit['first_seen'] else ''
+        where = f"in listed range {hit['range']}" if hit.get('range') else 'on indicator list'
         annotated['evidence'] = (
-            f"{threat['evidence']} | Source on indicator list "
+            f"{threat['evidence']} | Source {where} "
             f"as {hit['category']}{seen}"
         )
         enriched.append(annotated)

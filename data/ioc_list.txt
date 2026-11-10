@@ -1,6 +1,9 @@
 # SecuLogAI indicator list
 #
-# One indicator per line:  <ip>  <category>  <first-seen>
+# One indicator per line:  <ip or CIDR range>  <category>  <first-seen>
+# A range such as 203.0.113.0/24 matches every address in it; an exact address
+# wins over a range, and the narrowest range wins over a wider one. Ranges wider
+# than /8 (IPv4) or /32 (IPv6) are ignored as almost certainly a mistake.
 # Blank lines and anything after '#' are ignored.
 #
 # These entries correspond to the attack sources in the bundled sample logs so
