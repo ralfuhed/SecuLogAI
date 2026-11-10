@@ -9,6 +9,8 @@ import importlib
 import io
 import os
 import re
+import subprocess
+import sys
 
 import pytest
 
@@ -331,6 +333,45 @@ class TestServerDefaults:
     def test_binds_to_localhost_by_default(self, monkeypatch):
         monkeypatch.delenv('SECULOG_HOST', raising=False)
         assert run_web.server_config()['host'] == '127.0.0.1'
+
+
+class TestNetworkExposure:
+    """
+    Debug mode on a non-loopback address hands Werkzeug's Python console to
+    the network. It used to start with a printed warning; it is now refused.
+    """
+
+    @pytest.mark.parametrize('host', ['0.0.0.0', '192.168.1.20', '::', 'seculog.internal'])
+    def test_debug_on_a_reachable_address_is_refused(self, host):
+        with pytest.raises(ValueError, match='Refusing to start'):
+            run_web.check_config({'debug': True, 'host': host, 'port': 5000})
+
+    @pytest.mark.parametrize('host', ['127.0.0.1', 'localhost', '::1', '127.0.0.53'])
+    def test_debug_on_loopback_is_allowed_quietly(self, host):
+        assert run_web.check_config({'debug': True, 'host': host, 'port': 5000}) == []
+
+    def test_public_bind_without_debug_starts_with_a_warning(self):
+        warnings = run_web.check_config({'debug': False, 'host': '0.0.0.0', 'port': 5000})
+        assert len(warnings) == 1 and 'no authentication' in warnings[0]
+
+    def test_default_config_raises_nothing(self, monkeypatch):
+        for var in ('SECULOG_DEBUG', 'SECULOG_HOST', 'SECULOG_PORT'):
+            monkeypatch.delenv(var, raising=False)
+        assert run_web.check_config(run_web.server_config()) == []
+
+    def test_refusal_stops_the_process(self):
+        """
+        End to end: the server must not start at all.
+
+        192.0.2.1 is a reserved documentation address that no host owns, so
+        even if the refusal regressed, binding would fail rather than start a
+        debugger reachable from the network. Never use 0.0.0.0 here.
+        """
+        env = {**os.environ, 'SECULOG_DEBUG': '1', 'SECULOG_HOST': '192.0.2.1', 'SECULOG_PORT': '5099'}
+        result = subprocess.run([sys.executable, 'run_web.py'], cwd=os.path.dirname(run_web.__file__),
+                                env=env, capture_output=True, text=True, timeout=60)
+        assert result.returncode == 1
+        assert 'Refusing to start' in result.stdout
 
 
 class TestRoutesStillWork:
