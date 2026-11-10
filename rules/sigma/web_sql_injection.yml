@@ -29,6 +29,10 @@ detection:
   # lookbehind so it ports to backends that lack it.
   sql_union:
     c-uri|re|i: '(^|[^a-z_])union(\s|\+|%20|/\*!?[0-9]*|\*/)+(all(\s|\+|%20|/\*!?[0-9]*|\*/)+)?select'
+  # SELECT ... FROM only after the ( ; or quote that breaks out of a value into
+  # SQL, raw or percent-encoded. "select data from excel" is a search, not SQL.
+  sql_select_from:
+    c-uri|re|i: '(\(|;|''|"|%28|%3b|%27|%22)(\s|\+|%20|/\*!?[0-9]*|\*/)*select(\s|\+|%20|/\*|\*)[^&]{0,80}?(\s|\+|%20|\*/|\))from(\s|\+|%20|/\*|\()'
   sql_keywords:
     c-uri|contains:
       - 'OR 1=1'
@@ -73,7 +77,7 @@ detection:
       - '%27%23'
       - '%2D%2D'
       - '/*!'            # MySQL versioned comment: its body runs
-  condition: sql_union or sql_keywords or sql_comment_markers
+  condition: sql_union or sql_select_from or sql_keywords or sql_comment_markers
 fields:
   - src_ip
   - c-uri

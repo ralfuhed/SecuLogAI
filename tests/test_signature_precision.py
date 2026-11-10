@@ -78,6 +78,12 @@ BENIGN_URLS = [
     "/search?q=communion+selection",
     "/static/*/assets/*/main.css",
     "/assets/**/icons/arrow.svg",
+    # "select ... from" as English, not SQL
+    "/search?q=select+a+plan+from+our+range",
+    "/search?q=how+to+select+text+from+a+pdf",
+    "/help/select-items-from-the-list",
+    "/search?q=select%20data%20from%20excel",
+    "/forum?t=best+way+to+select+rows+from+a+table",
 ]
 
 # Real payloads, including percent-encoded evasions.
@@ -115,6 +121,14 @@ ATTACK_URLS = [
     "/p?id=1'/**/OR/**/1=1--",
     "/p?id=1;DROP/**/TABLE/**/users",
     "/p?id=1+UNION+ALL+SELECT+1",
+    # SELECT ... FROM after the ( ; or quote that breaks into SQL
+    "/p?id=1 AND 1=(SELECT COUNT(*) FROM users)",
+    "/p?id=(select password from users limit 1)",
+    "/p?id=1; SELECT * FROM users",
+    "/p?id=1';select+*+from+users--",
+    "/p?id=1+AND+(SELECT+1+FROM+(SELECT+SLEEP(5))a)",
+    "/p?id=1 AND EXISTS(SELECT * FROM users)",
+    "/p?id=1%27%20AND%20(SELECT%201%20FROM%20users)--",
 ]
 
 _SIGNATURES = [('SQLi', _SQLI), ('CmdI', _CMDI), ('XSS', _XSS), ('Traversal', _TRAVERSAL)]

@@ -86,6 +86,7 @@ def _decode(path: str) -> str:
 # a versioned comment, so 1/**/UNION/**/SELECT and /*!50000UNION*/SELECT are
 # both live payloads. Between keywords, whitespace or comment delimiters.
 _GAP = r"(?:\s|/\*!?\d*|\*/)+"
+_OPT_GAP = r"(?:\s|/\*!?\d*|\*/)*"
 
 # SQL Injection: requires real SQL grammar, not stray punctuation.
 # e.g. /login?user=admin'-- , /products?id=1 UNION SELECT ...
@@ -93,7 +94,11 @@ _SQLI = re.compile(
     r"("
     # UNION may follow a digit: 1UNION SELECT, /*!50000UNION
     rf"(?<![a-z_])union{_GAP}(all{_GAP})?select\b"  # UNION SELECT
-    r"|\b(select)\b[\s\S]{0,60}?\bfrom\b"           # SELECT ... FROM
+    # SELECT ... FROM only after a character that breaks out of a value into
+    # SQL: ( ; or a quote. Injected SQL needs one, as in (SELECT COUNT(*) FROM
+    # users) or 1; SELECT * FROM users, and UNION SELECT has its own branch.
+    # Plain "select ... from" is English: /search?q=select+data+from+excel.
+    rf"|[(;'\"]{_OPT_GAP}(select)\b[\s\S]{{0,60}}?\bfrom\b"
     rf"|\binsert{_GAP}into\b|\bdelete{_GAP}from\b"
     rf"|\bdrop{_GAP}(table|database)\b|\btruncate{_GAP}table\b"
     r"|\bupdate\b[\s\S]{0,40}?\bset\b"
